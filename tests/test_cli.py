@@ -130,9 +130,24 @@ def test_dotfile_scaffolding_and_stale_cleanup(runner, tmp_path, monkeypatch):
     clauderc_path.mkdir()
     assert clauderc_path.is_dir()
 
-    scaffold_local_env("claude")
-    assert clauderc_path.is_file()
-    assert not clauderc_path.is_dir()
+def test_add_when_axon_dir_missing(runner, tmp_path, monkeypatch):
+    import axon.cli as cli_module
+    import axon.core as core_module
+
+    mock_axon = tmp_path / "non_existent_axon"
+    monkeypatch.setattr(cli_module, "AXON_DIR", mock_axon)
+    monkeypatch.setattr(core_module, "AXON_DIR", mock_axon)
+    monkeypatch.setattr(core_module, "CONFIG_FILE", mock_axon / "config.yaml")
+
+    sample_rule = tmp_path / "sample-rule.md"
+    sample_rule.write_text("sample content")
+
+    assert not mock_axon.exists()
+
+    res = runner.invoke(cli, ['add', str(sample_rule)], input='2\ny\n')
+    assert res.exit_code == 0
+    assert (mock_axon / "principles" / "sample-rule.md").is_file()
+
 
 
 

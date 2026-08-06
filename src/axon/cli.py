@@ -4,9 +4,7 @@ import os
 from rich.console import Console
 from pathlib import Path
 from axon.adapters import ADAPTERS, scaffold_local_env
-from axon.core import get_staged_items, load_config, AXON_DIR, update_config_state
-
-
+from axon.core import get_staged_items, load_config, AXON_DIR, update_config_state, init_axon_dir
 
 console = Console()
 
@@ -91,6 +89,7 @@ def list_items(show_all, agent):
 @click.option('--name', help="Override the default name")
 def add(source_path, name):
     """Launch interactive wizard to stage a new skill or principle."""
+    init_axon_dir()
     src = Path(source_path)
     item_name = name if name else src.name
     
@@ -101,6 +100,7 @@ def add(source_path, name):
     )
     
     dest_dir = AXON_DIR / ("skills" if item_type == '1' else "principles")
+    dest_dir.mkdir(parents=True, exist_ok=True)
     dest_path = dest_dir / item_name
     
     if dest_path.exists():
