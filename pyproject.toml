@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "axon-cli"
+version = "0.1.0"
+description = "Skill & Constitution Management System for AI Agents"
+authors = [{name = "Aayush Lal Roy"}]
+dependencies = [
+    "pyyaml",
+    "click",
+    "rich"
+]
+
+[project.scripts]
+axon = "axon.cli:cli"
