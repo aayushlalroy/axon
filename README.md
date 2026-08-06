@@ -2,7 +2,7 @@
 
 **Axon** is a universal Skill & Constitution Management System for AI Agents.
 
-Axon provides a unified CLI (`axon`) to manage, stage, and compile system prompts ("Principles") and modular task instructions ("Skills") across multiple AI agent environments like Cursor, Claude Code, and Gemini/Antigravity.
+Axon provides a unified CLI (`axon`) to manage, stage, and compile system prompts ("Principles") and modular task instructions ("Skills") across multiple AI agent environments like Cursor, Claude Code, Gemini/Antigravity, Devin, and Codex.
 
 ## Features
 

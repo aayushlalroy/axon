@@ -58,7 +58,7 @@ ADAPTERS = {
     ),
     "claude": AgentAdapter(
         name="Claude Code",
-        local_file_targets=[Path(".clauderc")],
+        local_file_targets=[Path("CLAUDE.md")],
         supports_compile=True
     ),
     "gemini": AgentAdapter(
@@ -67,6 +67,22 @@ ADAPTERS = {
         local_principle_dirs=[Path(".agents/rules")],
         global_skill_dirs=[Path(os.path.expanduser("~/.gemini/config/skills"))],
         global_principle_dirs=[Path(os.path.expanduser("~/.gemini/config/rules"))]
+    ),
+    "devin": AgentAdapter(
+        name="Devin",
+        local_skill_dirs=[Path(".agents/skills")],
+        local_file_targets=[Path("AGENTS.md")],
+        global_skill_dirs=[Path(os.path.expanduser("~/.config/devin/skills"))],
+        global_file_targets=[Path(os.path.expanduser("~/.config/devin/AGENTS.md"))],
+        supports_compile=True
+    ),
+    "codex": AgentAdapter(
+        name="Codex",
+        local_skill_dirs=[Path(".codex/skills")],
+        local_file_targets=[Path("AGENTS.md")],
+        global_skill_dirs=[Path(os.path.expanduser("~/.codex/skills"))],
+        global_file_targets=[Path(os.path.expanduser("~/.codex/AGENTS.md"))],
+        supports_compile=True
     )
 }
 

@@ -12,7 +12,7 @@ Axon is a tool used by humans to manage skills and rules for *us* (AI Agents).
 - `pyproject.toml`: The entry point definition (`axon = axon.cli:cli`).
 - `src/axon/cli.py`: The `click` CLI interface. All user-facing commands (`add`, `enable`, `sync`) live here.
 - `src/axon/core.py`: File I/O for the `~/.axon/` global hub.
-- `src/axon/adapters.py`: Definitions of supported agents (`Cursor`, `Claude`, `Gemini`) and their respective file paths.
+- `src/axon/adapters.py`: Definitions of supported agents (`Cursor`, `Claude`, `Gemini`, `Devin`, `Codex`) and their respective file paths.
 
 ## Extending Axon
 To add support for a new AI IDE (e.g. GitHub Copilot, Windsurf):

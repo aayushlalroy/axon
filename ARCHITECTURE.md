@@ -12,13 +12,13 @@ Axon is built around a centralized hub-and-spoke model to resolve the impedance 
 ## Target Adapters
 Different IDEs and Agents ingest context differently. Axon handles this using the `AgentAdapter` class defined in `adapters.py`.
 
-### 1. Symlinking (Default)
-Agents like **Antigravity (AGY)** and **Claude Code** support modular `.md` files in designated folders (`.agents/skills/`). 
-Axon creates symbolic links from `~/.axon/skills/my-skill.md` directly into the project's local `.agents/skills/` folder. This ensures that any upstream edits to the skill in `~/.axon/` are immediately reflected across all projects.
+### 1. Symlinking (Modular Instructions)
+Agents like **Gemini / Antigravity**, **Devin**, **Codex**, and **Cursor** support modular `.md` files in designated folders (`.agents/skills/`, `.agents/rules/`, `.codex/skills/`, `.cursor/rules/`). 
+Axon creates symbolic links from `~/.axon/skills/my-skill.md` directly into the target project's local folder. This ensures that any upstream edits to the skill/rule in `~/.axon/` are immediately reflected across all projects.
 
-### 2. File Compilation (Monoliths)
-Agents like **Cursor** do not support a global file-based ruleset, and often rely on a single monolithic `.cursorrules` file.
-While V1 of Axon focuses heavily on modular symlinking for `.cursor/rules/` (Cursor MDC), the architecture supports "compiling" (concatenating) principles into a single `.cursorrules` file. 
+### 2. File Compilation (Single-File Targets)
+Agents like **Claude Code** (`CLAUDE.md`), **Devin** (`AGENTS.md`), **Codex** (`AGENTS.md`), and **Cursor** (`.cursorrules`) use single-file targets for project constitution rules. 
+While V1 of Axon focuses heavily on modular symlinking for skills and rules, the architecture supports compiling (concatenating) principles into single-file targets like `CLAUDE.md` and `AGENTS.md`. 
 
 ## State Management (`core.py`)
 State is strictly managed in `~/.axon/config.yaml`.

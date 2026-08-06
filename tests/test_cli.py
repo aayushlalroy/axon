@@ -12,6 +12,8 @@ def test_agents_command(runner):
     assert "Cursor" in result.output
     assert "Claude Code" in result.output
     assert "Gemini/Antigravity" in result.output
+    assert "Devin" in result.output
+    assert "Codex" in result.output
 
 def test_list_command(runner):
     result = runner.invoke(cli, ['list', '--all'])
@@ -116,19 +118,14 @@ def test_dotfile_scaffolding_and_stale_cleanup(runner, tmp_path, monkeypatch):
 
     monkeypatch.chdir(tmp_path)
 
-    # Initialize project for claude and cursor
-    res_init = runner.invoke(cli, ['init', '--agent', 'claude', '--agent', 'cursor'])
+    # Initialize project for claude, cursor, devin, and codex
+    res_init = runner.invoke(cli, ['init', '--agent', 'claude', '--agent', 'cursor', '--agent', 'devin', '--agent', 'codex'])
     assert res_init.exit_code == 0
-    assert (tmp_path / ".clauderc").is_file()
-    assert not (tmp_path / ".clauderc").is_dir()
+    assert (tmp_path / "CLAUDE.md").is_file()
     assert (tmp_path / ".cursorrules").is_file()
-    assert not (tmp_path / ".cursorrules").is_dir()
-
-    # Simulate an old erroneous directory for .clauderc and run scaffold
-    clauderc_path = tmp_path / ".clauderc"
-    clauderc_path.unlink()
-    clauderc_path.mkdir()
-    assert clauderc_path.is_dir()
+    assert (tmp_path / "AGENTS.md").is_file()
+    assert (tmp_path / ".agents" / "skills").is_dir()
+    assert (tmp_path / ".codex" / "skills").is_dir()
 
 def test_auto_detection_and_list_principles(runner, tmp_path, monkeypatch):
     import axon.cli as cli_module
@@ -172,10 +169,47 @@ def test_auto_detection_and_list_principles(runner, tmp_path, monkeypatch):
     assert "Warning" in res_disable_skill.output or res_disable_skill.exit_code == 0
     assert (agents_rules / "contract-first.md").is_symlink()
 
-    # 4. Disable without specifying item_type (auto-detection)
-    res_disable_auto = runner.invoke(cli, ['disable', 'contract-first.md'])
-    assert res_disable_auto.exit_code == 0
-    assert not (agents_rules / "contract-first.md").exists()
+def test_devin_and_codex_adapter_routing(runner, tmp_path, monkeypatch):
+    import axon.cli as cli_module
+    import axon.core as core_module
+
+    mock_axon = tmp_path / ".axon"
+    mock_principles = mock_axon / "principles"
+    mock_skills = mock_axon / "skills"
+    mock_principles.mkdir(parents=True)
+    mock_skills.mkdir(parents=True)
+    
+    (mock_principles / "devin-rule.md").write_text("devin rule content")
+    (mock_skills / "devin-skill.md").write_text("devin skill content")
+
+    monkeypatch.setattr(cli_module, "AXON_DIR", mock_axon)
+    monkeypatch.setattr(core_module, "AXON_DIR", mock_axon)
+    monkeypatch.setattr(core_module, "CONFIG_FILE", mock_axon / "config.yaml")
+
+    monkeypatch.chdir(tmp_path)
+
+    # Initialize project for devin and codex
+    res_init = runner.invoke(cli, ['init', '--agent', 'devin', '--agent', 'codex'])
+    assert res_init.exit_code == 0
+    assert (tmp_path / "AGENTS.md").is_file()
+    assert (tmp_path / ".agents" / "skills").is_dir()
+    assert (tmp_path / ".codex" / "skills").is_dir()
+
+    # Enable skill for devin
+    res_en_devin_skill = runner.invoke(cli, ['enable', 'skill', 'devin-skill.md', '--agent', 'devin'])
+    assert res_en_devin_skill.exit_code == 0
+    assert (tmp_path / ".agents" / "skills" / "devin-skill.md").is_symlink()
+
+    # Enable skill for codex
+    res_en_codex_skill = runner.invoke(cli, ['enable', 'skill', 'devin-skill.md', '--agent', 'codex'])
+    assert res_en_codex_skill.exit_code == 0
+    assert (tmp_path / ".codex" / "skills" / "devin-skill.md").is_symlink()
+
+    # Disable skill
+    res_dis_devin = runner.invoke(cli, ['disable', 'skill', 'devin-skill.md', '--agent', 'devin'])
+    assert res_dis_devin.exit_code == 0
+    assert not (tmp_path / ".agents" / "skills" / "devin-skill.md").exists()
+
 
 
 

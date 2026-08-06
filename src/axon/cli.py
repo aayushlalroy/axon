@@ -18,8 +18,10 @@ def agents():
     """List all currently supported agent adapters."""
     console.print("[bold green]Supported Agent Adapters:[/bold green]")
     console.print("- Cursor [dim](.cursor/rules/, .cursorrules)[/dim]")
-    console.print("- Claude Code [dim](.clauderc)[/dim]")
+    console.print("- Claude Code [dim](CLAUDE.md)[/dim]")
     console.print("- Gemini/Antigravity [dim](~/.gemini/config/, .agents/)[/dim]")
+    console.print("- Devin [dim](AGENTS.md, .agents/skills/)[/dim]")
+    console.print("- Codex [dim](AGENTS.md, .codex/skills/)[/dim]")
 
 @cli.command()
 @click.option('--agent', multiple=True, help="Specify agents to initialize (cursor, claude, gemini)")
