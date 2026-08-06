@@ -15,10 +15,19 @@ Axon provides a unified CLI (`axon`) to manage, stage, and compile system prompt
 
 ### Installation
 
+The easiest way to install (and update) Axon is using our automatic installation script. Simply run this in your terminal:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/aayushlalroy/axon/main/install.sh | bash
+```
+
+*Note: The installer uses `pipx` under the hood to ensure Axon is installed safely in an isolated environment without breaking your global Python packages.*
+
+Alternatively, you can install manually from source:
 ```bash
 git clone https://github.com/aayushlalroy/axon.git
 cd axon
-pip install -e .
+pipx install .
 ```
 
 ### Usage
