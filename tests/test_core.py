@@ -323,3 +323,105 @@ def test_stage_workflow_raises_if_already_exists(tmp_path, axon_home):
     core.stage_workflow(src, "w.md")
     with pytest.raises(FileExistsError):
         core.stage_workflow(src, "w.md", overwrite=False)
+
+
+# ─────────────────────────────────────────────────────────
+# extract_name_from_source
+# ─────────────────────────────────────────────────────────
+
+def test_extract_name_from_yaml_frontmatter_file(tmp_path):
+    import axon.core as core
+    f = tmp_path / "random_filename.md"
+    f.write_text("---\nname: my-extracted-skill\ndescription: test\n---\nbody")
+    assert core.extract_name_from_source(f) == "my-extracted-skill"
+
+
+def test_extract_name_fallback_to_stem_if_no_frontmatter(tmp_path):
+    import axon.core as core
+    f = tmp_path / "my_file_name.md"
+    f.write_text("Plain markdown without frontmatter")
+    assert core.extract_name_from_source(f) == "my_file_name"
+
+
+def test_extract_name_from_folder_skill_md(tmp_path):
+    import axon.core as core
+    d = tmp_path / "folder_name"
+    d.mkdir()
+    (d / "SKILL.md").write_text("---\nname: skill-inside-folder\n---\ncontent")
+    assert core.extract_name_from_source(d) == "skill-inside-folder"
+
+
+# ─────────────────────────────────────────────────────────
+# compile_principles_for_agent
+# ─────────────────────────────────────────────────────────
+
+def test_compile_principles_devin_compiles_into_agents_md(tmp_path, axon_home, monkeypatch):
+    import axon.core as core
+    from axon.adapters import ADAPTERS, AgentAdapter, SKILL_FORMAT_FOLDER
+
+    agents_md = tmp_path / "AGENTS.md"
+    devin_instructions = tmp_path / ".devin" / "instructions.md"
+    agents_md.write_text("# Project Info\nCustom instructions.\n")
+
+    adapter = AgentAdapter(
+        name="Devin",
+        skill_format=SKILL_FORMAT_FOLDER,
+        local_file_targets=[agents_md, devin_instructions],
+        supports_compile=True,
+    )
+    monkeypatch.setitem(ADAPTERS, "devin", adapter)
+
+    # Stage principle
+    core.stage_principle(tmp_path / "always-test.md" if not (tmp_path / "always-test.md").write_text("Always write tests") else tmp_path / "always-test.md", "always-test.md")
+    core.update_config_state("devin", "local", "principles", "always-test.md", enable=True)
+
+    core.compile_principles_for_agent("devin", scope="local")
+
+    assert agents_md.is_file()
+    text = agents_md.read_text()
+    assert "# Project Info" in text
+    assert "<!-- AXON:BEGIN -->" in text
+    assert "## always-test" in text
+    assert "Always write tests" in text
+    assert "<!-- AXON:END -->" in text
+
+    # Check .devin/instructions.md as well
+    assert devin_instructions.is_file()
+    assert "Always write tests" in devin_instructions.read_text()
+
+
+def test_compile_principles_disabling_removes_section_but_keeps_user_content(tmp_path, axon_home, monkeypatch):
+    import axon.core as core
+    from axon.adapters import ADAPTERS, AgentAdapter, SKILL_FORMAT_FOLDER
+
+    agents_md = tmp_path / "AGENTS.md"
+    agents_md.write_text("# User Section\nKeep this text!\n")
+
+    adapter = AgentAdapter(
+        name="Devin",
+        skill_format=SKILL_FORMAT_FOLDER,
+        local_file_targets=[agents_md],
+        supports_compile=True,
+    )
+    monkeypatch.setitem(ADAPTERS, "devin", adapter)
+
+    p_file = tmp_path / "style.md"
+    p_file.write_text("Strict typing required")
+    core.stage_principle(p_file, "style.md")
+
+    # Enable
+    core.update_config_state("devin", "local", "principles", "style.md", enable=True)
+    core.compile_principles_for_agent("devin", scope="local")
+    assert "Strict typing required" in agents_md.read_text()
+
+    # Disable
+    core.update_config_state("devin", "local", "principles", "style.md", enable=False)
+    core.compile_principles_for_agent("devin", scope="local")
+
+    # Managed section should be gone, user section preserved
+    text = agents_md.read_text()
+    assert "# User Section" in text
+    assert "Keep this text!" in text
+    assert "Strict typing required" not in text
+    assert "<!-- AXON:BEGIN -->" not in text
+

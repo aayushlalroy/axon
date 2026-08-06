@@ -211,7 +211,7 @@ def test_add_skill_from_folder(runner, tmp_path, monkeypatch):
 
     src_dir = tmp_path / "awesome-skill"
     src_dir.mkdir()
-    (src_dir / "SKILL.md").write_text("---\nname: awesome\n---\nbody")
+    (src_dir / "SKILL.md").write_text("---\nname: awesome-skill\n---\nbody")
     (src_dir / "scripts").mkdir()
     (src_dir / "scripts" / "run.sh").write_text("#!/bin/bash\necho hi")
 
@@ -281,10 +281,8 @@ def test_enable_skill_folder_format_creates_folder_symlink(runner, tmp_path, mon
     assert result.exit_code == 0
 
     link = skills_dir / "fast-format"
-    assert link.is_symlink()
     assert link.is_dir()
-    # The symlink should resolve to the staged folder
-    assert (link / "SKILL.md").exists()
+    assert (link / "SKILL.md").is_file()
 
 
 def test_enable_skill_folder_format_dest_name_has_no_extension(runner, tmp_path, monkeypatch):
@@ -304,7 +302,7 @@ def test_enable_skill_folder_format_dest_name_has_no_extension(runner, tmp_path,
     # No .md or .mdc extension
     assert not (skills_dir / "my-tool.md").exists()
     assert not (skills_dir / "my-tool.mdc").exists()
-    assert (skills_dir / "my-tool").is_symlink()
+    assert (skills_dir / "my-tool").is_dir()
 
 
 # ─────────────────────────────────────────────────────────
@@ -336,9 +334,8 @@ def test_enable_skill_flat_mdc_creates_mdc_symlink(runner, tmp_path, monkeypatch
     assert result.exit_code == 0
 
     link = rules_dir / "debug-helper.mdc"
-    assert link.is_symlink()
-    # Should point to SKILL.md inside the staged folder
-    assert link.resolve().name == "SKILL.md"
+    assert link.is_file()
+    assert "skill body" in link.read_text()
 
 
 def test_enable_principle_flat_mdc_creates_md_symlink(runner, tmp_path, monkeypatch):
@@ -355,7 +352,7 @@ def test_enable_principle_flat_mdc_creates_md_symlink(runner, tmp_path, monkeypa
 
     result = runner.invoke(cli, ["enable", "principle", "always-types.md"])
     assert result.exit_code == 0
-    assert (rules_dir / "always-types.md").is_symlink()
+    assert (rules_dir / "always-types.md").is_file()
 
 
 # ─────────────────────────────────────────────────────────
@@ -388,8 +385,7 @@ def test_enable_skill_flat_md_creates_md_symlink(runner, tmp_path, monkeypatch):
     assert result.exit_code == 0
 
     link = rules_dir / "my-rule.md"
-    assert link.is_symlink()
-    assert link.resolve().name == "SKILL.md"
+    assert link.is_file()
 
 
 # ─────────────────────────────────────────────────────────
@@ -439,7 +435,7 @@ def test_enable_workflow_creates_flat_md_symlink(runner, tmp_path, monkeypatch):
 
     result = runner.invoke(cli, ["enable", "workflow", "pr-review.md"])
     assert result.exit_code == 0
-    assert (wf_dir / "pr-review.md").is_symlink()
+    assert (wf_dir / "pr-review.md").is_file()
 
 
 def test_enable_workflow_skipped_for_agent_without_workflow_dirs(runner, tmp_path, monkeypatch):
@@ -487,7 +483,7 @@ def test_enable_global_falls_back_to_local_when_no_global_dirs(runner, tmp_path,
     assert result.exit_code == 0
     assert "Falling back to local" in result.output
     # Should have created the link in local dir
-    assert (local_skills / "my-skill.md").is_symlink()
+    assert (local_skills / "my-skill.md").is_file()
 
 
 # ─────────────────────────────────────────────────────────
@@ -523,7 +519,7 @@ def test_enable_skill_removes_stale_principle_symlink(runner, tmp_path, monkeypa
     # Stale link in principles dir should be gone
     assert not stale.exists()
     # Correct link in skills dir should be present
-    assert (skills_dir / "tool").is_symlink()
+    assert (skills_dir / "tool").is_dir()
 
 
 # ─────────────────────────────────────────────────────────
@@ -544,7 +540,7 @@ def test_enable_auto_detects_skill(runner, tmp_path, monkeypatch):
 
     result = runner.invoke(cli, ["enable", "cool-skill"])
     assert result.exit_code == 0
-    assert (skills_dir / "cool-skill").is_symlink()
+    assert (skills_dir / "cool-skill").is_dir()
 
 
 def test_enable_auto_detects_principle(runner, tmp_path, monkeypatch):
@@ -566,7 +562,7 @@ def test_enable_auto_detects_principle(runner, tmp_path, monkeypatch):
 
     result = runner.invoke(cli, ["enable", "style-guide.md"])
     assert result.exit_code == 0
-    assert (principles_dir / "style-guide.md").is_symlink()
+    assert (principles_dir / "style-guide.md").is_file()
 
 
 def test_enable_unstaged_item_errors(runner, tmp_path, monkeypatch):
@@ -627,7 +623,7 @@ def test_disable_with_wrong_type_leaves_link_intact(runner, tmp_path, monkeypatc
     assert result.exit_code == 0
     assert "Warning" in result.output
     # The principle symlink should remain intact
-    assert link.is_symlink()
+    assert link.exists()
 
 
 def test_disable_removes_all_variants(runner, tmp_path, monkeypatch):
@@ -674,16 +670,17 @@ def test_sync_rebuilds_deleted_symlink(runner, tmp_path, monkeypatch):
     # Enable first to write config
     runner.invoke(cli, ["enable", "skill", "the-skill"])
     link = skills_dir / "the-skill"
-    assert link.is_symlink()
+    assert link.is_dir()
 
-    # Manually delete the symlink
-    link.unlink()
+    # Manually delete the directory
+    import shutil
+    shutil.rmtree(link)
     assert not link.exists()
 
     # Sync should restore it
     result = runner.invoke(cli, ["sync"], input="y\n")
     assert result.exit_code == 0
-    assert link.is_symlink()
+    assert link.is_dir()
     assert (link / "SKILL.md").exists()
 
 
@@ -716,8 +713,8 @@ def test_devin_enables_skill_in_both_dirs(runner, tmp_path, monkeypatch):
     # Now enable for real devin adapter (uses current project dirs)
     result = runner.invoke(cli, ["enable", "skill", "deploy", "--agent", "devin"])
     assert result.exit_code == 0
-    assert (tmp_path / ".devin" / "skills" / "deploy").is_symlink()
-    assert (tmp_path / ".agents" / "skills" / "deploy").is_symlink()
+    assert (tmp_path / ".devin" / "skills" / "deploy").is_dir()
+    assert (tmp_path / ".agents" / "skills" / "deploy").is_dir()
 
 
 def test_codex_enables_skill_in_codex_dir(runner, tmp_path, monkeypatch):
@@ -731,7 +728,7 @@ def test_codex_enables_skill_in_codex_dir(runner, tmp_path, monkeypatch):
 
     result = runner.invoke(cli, ["enable", "skill", "test-runner", "--agent", "codex"])
     assert result.exit_code == 0
-    assert (tmp_path / ".codex" / "skills" / "test-runner").is_symlink()
+    assert (tmp_path / ".codex" / "skills" / "test-runner").is_dir()
 
 
 def test_copilot_skips_skill_enable(runner, tmp_path, monkeypatch):
@@ -761,9 +758,7 @@ def test_windsurf_uses_flat_md_for_skills(runner, tmp_path, monkeypatch):
     result = runner.invoke(cli, ["enable", "skill", "clean-code", "--agent", "windsurf"])
     assert result.exit_code == 0
     link = tmp_path / ".windsurf" / "rules" / "clean-code.md"
-    assert link.is_symlink()
-    # Must point to SKILL.md, not the whole folder
-    assert link.resolve().name == "SKILL.md"
+    assert link.is_file()
 
 
 def test_cursor_uses_flat_mdc_for_skills(runner, tmp_path, monkeypatch):
@@ -779,8 +774,7 @@ def test_cursor_uses_flat_mdc_for_skills(runner, tmp_path, monkeypatch):
     result = runner.invoke(cli, ["enable", "skill", "ts-rules", "--agent", "cursor"])
     assert result.exit_code == 0
     link = tmp_path / ".cursor" / "rules" / "ts-rules.mdc"
-    assert link.is_symlink()
-    assert link.resolve().name == "SKILL.md"
+    assert link.is_file()
 
 
 # ─────────────────────────────────────────────────────────
@@ -846,7 +840,7 @@ def test_enable_replaces_broken_symlink(runner, tmp_path, monkeypatch):
     result = runner.invoke(cli, ["enable", "skill", "relink-skill"])
     assert result.exit_code == 0
     # Broken symlink should be replaced with a working one
-    assert (skills_dir / "relink-skill").is_symlink()
+    assert (skills_dir / "relink-skill").is_dir()
     assert (skills_dir / "relink-skill" / "SKILL.md").exists()
 
 

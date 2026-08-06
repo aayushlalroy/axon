@@ -70,17 +70,17 @@ def get_staged_items():
 
     skills = [
         f.name for f in _skill_dir.iterdir()
-        if f.name != ".DS_Store" and (f.is_dir() or f.is_file())
+        if f.name != ".DS_Store" and f.is_dir()
     ] if _skill_dir.exists() else []
 
     principles = [
         f.name for f in _principle_dir.iterdir()
-        if f.name != ".DS_Store"
+        if f.name != ".DS_Store" and f.is_file()
     ] if _principle_dir.exists() else []
 
     workflows = [
         f.name for f in _workflow_dir.iterdir()
-        if f.name != ".DS_Store"
+        if f.name != ".DS_Store" and f.is_file()
     ] if _workflow_dir.exists() else []
 
     return {"skills": skills, "principles": principles, "workflows": workflows}
@@ -158,3 +158,120 @@ def stage_workflow(src: Path, dest_name: str, overwrite: bool = False) -> Path:
         raise ValueError(f"Workflows must be flat files, not directories: {src}")
     shutil.copy2(src, dest)
     return dest
+
+
+def extract_name_from_source(src: Path) -> str:
+    """
+    Extract item name from YAML frontmatter if present (e.g. `name: foo`),
+    otherwise fall back to stem for files or folder name for directories.
+    """
+    target_file = None
+    if src.is_dir():
+        if (src / "SKILL.md").exists():
+            target_file = src / "SKILL.md"
+        else:
+            md_files = list(src.glob("*.md"))
+            if len(md_files) == 1:
+                target_file = md_files[0]
+    elif src.is_file():
+        target_file = src
+
+    if target_file and target_file.exists():
+        try:
+            content = target_file.read_text(encoding="utf-8")
+            if content.startswith("---"):
+                parts = content.split("---", 2)
+                if len(parts) >= 3:
+                    fm = yaml.safe_load(parts[1])
+                    if isinstance(fm, dict) and fm.get("name"):
+                        return str(fm["name"]).strip()
+        except Exception:
+            pass
+
+    return src.stem if src.is_file() else src.name
+
+
+AXON_BEGIN_MARKER = "<!-- AXON:BEGIN -->"
+AXON_END_MARKER = "<!-- AXON:END -->"
+
+
+def compile_principles_for_agent(agent_name: str, scope: str = "local"):
+    """
+    Compile all enabled principles for an agent into its single-file targets
+    (e.g., AGENTS.md, CLAUDE.md, .cursorrules, .windsurfrules, .github/copilot-instructions.md).
+    Preserves user content outside AXON:BEGIN / AXON:END tags.
+    """
+    from axon.adapters import ADAPTERS
+
+    if agent_name not in ADAPTERS:
+        return
+
+    adapter = ADAPTERS[agent_name]
+    if not adapter.supports_compile:
+        return
+
+    is_global = (scope == "global")
+    file_targets = adapter.global_file_targets if is_global else adapter.local_file_targets
+    if not file_targets:
+        return
+
+    config = load_config()
+    enabled_principles = (
+        config.get("agents", {})
+        .get(agent_name, {})
+        .get(scope, {})
+        .get("principles", [])
+    )
+
+    blocks = []
+    for p_name in enabled_principles:
+        p_path = AXON_DIR / "principles" / p_name
+        if not p_path.exists() and not p_name.endswith(".md"):
+            p_path = AXON_DIR / "principles" / f"{p_name}.md"
+
+        if p_path.exists():
+            content = p_path.read_text(encoding="utf-8").strip()
+            title = p_name.rsplit(".", 1)[0]
+            blocks.append(f"## {title}\n\n{content}")
+
+    if blocks:
+        compiled_section = (
+            f"{AXON_BEGIN_MARKER}\n"
+            f"# Principles (Managed by Axon)\n\n"
+            + "\n\n".join(blocks)
+            + f"\n{AXON_END_MARKER}"
+        )
+    else:
+        compiled_section = ""
+
+    for target_file in file_targets:
+        _update_target_file_with_compiled_section(target_file, compiled_section)
+
+
+def _update_target_file_with_compiled_section(target_file: Path, compiled_section: str):
+    if not target_file.parent.exists():
+        target_file.parent.mkdir(parents=True, exist_ok=True)
+
+    existing_text = target_file.read_text(encoding="utf-8") if target_file.exists() else ""
+
+    if AXON_BEGIN_MARKER in existing_text and AXON_END_MARKER in existing_text:
+        before = existing_text.split(AXON_BEGIN_MARKER)[0].rstrip()
+        after = existing_text.split(AXON_END_MARKER)[1].lstrip()
+
+        if compiled_section:
+            new_text = (before + "\n\n" + compiled_section + "\n\n" + after).strip() + "\n"
+        else:
+            new_text = (before + "\n\n" + after).strip()
+            if new_text:
+                new_text += "\n"
+    else:
+        if compiled_section:
+            if existing_text.strip():
+                new_text = existing_text.rstrip() + "\n\n" + compiled_section + "\n"
+            else:
+                new_text = compiled_section + "\n"
+        else:
+            new_text = existing_text
+
+    target_file.write_text(new_text, encoding="utf-8")
+
