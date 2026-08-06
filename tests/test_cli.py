@@ -54,10 +54,10 @@ def test_enable_disable_sync_linking(runner, tmp_path, monkeypatch):
     test_adapters = {
         "gemini": AgentAdapter(
             name="Gemini/Antigravity",
-            local_skill_paths=[local_agents_skills],
-            local_principle_paths=[local_agents_rules],
-            global_skill_paths=[global_gemini_skills],
-            global_principle_paths=[global_gemini_rules]
+            local_skill_dirs=[local_agents_skills],
+            local_principle_dirs=[local_agents_rules],
+            global_skill_dirs=[global_gemini_skills],
+            global_principle_dirs=[global_gemini_rules]
         )
     }
     monkeypatch.setattr(cli_module, "ADAPTERS", test_adapters)
@@ -108,6 +108,32 @@ def test_enable_disable_sync_linking(runner, tmp_path, monkeypatch):
     # Confirm correct location separation after sync
     assert not (local_agents_rules / "my-skill.md").exists()
     assert not (global_gemini_skills / "my-rule.md").exists()
+
+def test_dotfile_scaffolding_and_stale_cleanup(runner, tmp_path, monkeypatch):
+    import axon.cli as cli_module
+    import axon.core as core_module
+    from axon.adapters import scaffold_local_env
+
+    monkeypatch.chdir(tmp_path)
+
+    # Initialize project for claude and cursor
+    res_init = runner.invoke(cli, ['init', '--agent', 'claude', '--agent', 'cursor'])
+    assert res_init.exit_code == 0
+    assert (tmp_path / ".clauderc").is_file()
+    assert not (tmp_path / ".clauderc").is_dir()
+    assert (tmp_path / ".cursorrules").is_file()
+    assert not (tmp_path / ".cursorrules").is_dir()
+
+    # Simulate an old erroneous directory for .clauderc and run scaffold
+    clauderc_path = tmp_path / ".clauderc"
+    clauderc_path.unlink()
+    clauderc_path.mkdir()
+    assert clauderc_path.is_dir()
+
+    scaffold_local_env("claude")
+    assert clauderc_path.is_file()
+    assert not clauderc_path.is_dir()
+
 
 
 

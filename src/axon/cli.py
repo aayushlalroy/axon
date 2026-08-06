@@ -143,18 +143,22 @@ def enable(item_type, names, is_global, agent):
                 continue
             adapter = ADAPTERS[ag]
             
-            target_paths = adapter.get_paths(item_type, is_global=is_global)
+            target_dirs = adapter.get_dir_paths(item_type, is_global=is_global)
             scope = "global" if is_global else "local"
             
-            if is_global and not target_paths:
+            if is_global and not target_dirs:
                 console.print(f"[yellow]Warning: {adapter.name} does not support global file-based {item_type}s. Falling back to local.[/yellow]")
-                target_paths = adapter.get_paths(item_type, is_global=False)
+                target_dirs = adapter.get_dir_paths(item_type, is_global=False)
                 scope = "local"
+            
+            # Clean up any stale symlinks of this item from opposite type directories
+            opposite_dirs = adapter.get_opposite_dir_paths(item_type, is_global=(scope == "global"))
+            for opp_dir in opposite_dirs:
+                stale_symlink = opp_dir / name
+                if stale_symlink.exists() and stale_symlink.is_symlink():
+                    stale_symlink.unlink()
                 
-            for target_dir in target_paths:
-                if target_dir.suffix: # Skip file compilation for now, handle symlinks only for skills/modular principles
-                    continue
-                
+            for target_dir in target_dirs:
                 if not target_dir.exists():
                     console.print(f"[yellow]Warning: Directory {target_dir} is missing.[/yellow]")
                     if click.confirm("Do you want to create it?"):
@@ -190,17 +194,12 @@ def disable(item_type, names, is_global, agent):
                 continue
             adapter = ADAPTERS[ag]
             
-            target_paths = adapter.get_paths(item_type, is_global=is_global)
+            target_dirs = adapter.get_dir_paths(item_type, is_global=is_global)
+            opposite_dirs = adapter.get_opposite_dir_paths(item_type, is_global=is_global)
+            all_dirs = list(dict.fromkeys(target_dirs + opposite_dirs))
             scope = "global" if is_global else "local"
             
-            if is_global and not target_paths:
-                target_paths = adapter.get_paths(item_type, is_global=False)
-                scope = "local"
-                
-            for target_dir in target_paths:
-                if target_dir.suffix:
-                    continue
-                    
+            for target_dir in all_dirs:
                 dest_path = target_dir / name
                 if dest_path.exists() and dest_path.is_symlink():
                     dest_path.unlink()
@@ -227,13 +226,17 @@ def sync():
         for scope, item_types in scopes.items():
             is_glob = (scope == "global")
             for item_type_key, names in item_types.items():
-                target_paths = adapter.get_paths(item_type_key, is_global=is_glob)
+                target_dirs = adapter.get_dir_paths(item_type_key, is_global=is_glob)
+                opposite_dirs = adapter.get_opposite_dir_paths(item_type_key, is_global=is_glob)
                 
-                for target_dir in target_paths:
-                    if target_dir.suffix:
-                        continue
-                    
-                    for name in names:
+                for name in names:
+                    # Clean stale symlinks in opposite dirs
+                    for opp_dir in opposite_dirs:
+                        stale = opp_dir / name
+                        if stale.exists() and stale.is_symlink():
+                            stale.unlink()
+                            
+                    for target_dir in target_dirs:
                         src_path = AXON_DIR / item_type_key / name
                         dest_path = target_dir / name
                         
