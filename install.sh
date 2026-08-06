@@ -3,7 +3,8 @@
 set -e
 
 REPO_URL="https://github.com/aayushlalroy/axon.git"
-PACKAGE_NAME="axon-cli"
+ENV_DIR="$HOME/.axon-env"
+BIN_DIR="$HOME/.local/bin"
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -13,27 +14,32 @@ NC='\033[0m' # No Color
 
 echo -e "${GREEN}Starting Axon CLI Installation...${NC}"
 
-# Check for pipx
-if ! command -v pipx &> /dev/null; then
-    echo -e "${RED}Error: 'pipx' is required for a safe installation but was not found.${NC}"
-    echo -e "Please install pipx first:"
-    echo -e "  macOS: ${YELLOW}brew install pipx${NC}"
-    echo -e "  Ubuntu/Debian: ${YELLOW}sudo apt install pipx${NC}"
-    echo -e "  Windows/Other: ${YELLOW}python3 -m pip install --user pipx${NC}"
+if ! command -v python3 &> /dev/null; then
+    echo -e "${RED}Error: 'python3' is required but was not found.${NC}"
     exit 1
 fi
 
-# Check if already installed
-if pipx list --short | grep -q "^${PACKAGE_NAME} "; then
-    echo -e "${YELLOW}Axon CLI is already installed. Updating to the latest version...${NC}"
-    pipx install --force "git+${REPO_URL}"
-else
-    echo -e "${GREEN}Installing Axon CLI...${NC}"
-    pipx install "git+${REPO_URL}"
+echo -e "${YELLOW}Setting up isolated environment in ${ENV_DIR}...${NC}"
+# Use the built-in venv module to create a safe, isolated python environment
+python3 -m venv "$ENV_DIR"
+
+echo -e "${YELLOW}Installing/Updating Axon CLI from GitHub...${NC}"
+# Use the isolated pip to install directly from git, forcing upgrade if already installed
+"$ENV_DIR/bin/pip" install --upgrade "git+${REPO_URL}"
+
+echo -e "${YELLOW}Creating executable link...${NC}"
+mkdir -p "$BIN_DIR"
+
+# Force symlink the executable to the local bin directory
+ln -sf "$ENV_DIR/bin/axon" "$BIN_DIR/axon"
+
+echo -e "\n${GREEN}Success! Axon CLI is installed.${NC}"
+
+# Warn the user if ~/.local/bin is not in their system PATH
+if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
+    echo -e "${YELLOW}Warning: $BIN_DIR is not in your PATH.${NC}"
+    echo -e "You may need to add this line to your ~/.zshrc or ~/.bash_profile:"
+    echo -e "  export PATH=\"$BIN_DIR:\$PATH\""
 fi
 
-# Ensure pipx path is set
-pipx ensurepath > /dev/null 2>&1
-
-echo -e "\n${GREEN}Success! Axon CLI is ready to use.${NC}"
-echo -e "Try running: ${YELLOW}axon --help${NC}"
+echo -e "\nTo get started, try running: ${YELLOW}axon --help${NC}"
