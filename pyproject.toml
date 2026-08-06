@@ -4,14 +4,42 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "axon-cli"
-version = "0.1.0"
+version = "0.2.0b1"
 description = "Skill & Constitution Management System for AI Agents"
+readme = "README.md"
 authors = [{name = "Aayush Lal Roy"}]
+requires-python = ">=3.9"
+license = {text = "MIT"}
+keywords = ["ai", "agents", "skills", "cli", "cursor", "claude", "gemini", "devin", "codex"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Environment :: Console",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+]
 dependencies = [
     "pyyaml",
     "click",
-    "rich"
+    "rich",
 ]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/aayushlalroy/axon"
+Repository = "https://github.com/aayushlalroy/axon"
+Issues = "https://github.com/aayushlalroy/axon/issues"
+Changelog = "https://github.com/aayushlalroy/axon/blob/main/CHANGELOG.md"
 
 [project.scripts]
 axon = "axon.cli:cli"
+
+[tool.setuptools.package-data]
+axon = ["*.yaml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

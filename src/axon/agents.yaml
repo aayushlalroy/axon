@@ -1,0 +1,196 @@
+# Axon Agents Registry Configuration
+# ============================================================
+# Defines all supported AI agents and their target file/directory
+# paths for skills, principles, workflows - local (per-project)
+# and global (machine-wide) scopes.
+#
+# IMPORTANT DESIGN NOTES:
+# ─────────────────────────────────────────────────────────────
+# skill_format controls HOW skills are stored in target directories:
+#
+#   "folder_skill_md"  → each skill is a FOLDER:
+#                        <skills-dir>/<skill-name>/SKILL.md
+#                        (open AgentSkills standard, agentskills.io)
+#                        Used by: Devin, Claude Code, Gemini, Codex
+#
+#   "flat_mdc"         → each skill is a single .mdc file (Cursor MDC):
+#                        <skills-dir>/<skill-name>.mdc
+#                        Used by: Cursor
+#
+#   "flat_md"          → each skill/rule is a single .md file:
+#                        <skills-dir>/<skill-name>.md
+#                        Used by: Windsurf (rules/workflows)
+#
+#   "none"             → agent does not support discrete skill files
+#                        (only single compiled instruction files)
+#                        Used by: GitHub Copilot
+#
+# Principles are always flat .md files. They are either:
+#   - Compiled/appended into a single file (CLAUDE.md, AGENTS.md, .cursorrules)
+#   - Stored as flat .md/.mdc files in a rules directory
+# ─────────────────────────────────────────────────────────────
+
+cursor:
+  name: "Cursor"
+  description: "Anysphere Cursor AI IDE"
+  # Skills/Principles: Cursor uses flat .mdc files with YAML frontmatter.
+  # No subfolder/SKILL.md structure - each rule IS the .mdc file.
+  # Principles = alwaysApply: true  |  Skills = alwaysApply: false
+  skill_format: "flat_mdc"
+  local:
+    skills:
+      - ".cursor/rules"
+    principles:
+      - ".cursor/rules"
+    workflows: []
+    files:
+      - ".cursorrules"
+  global:
+    skills:
+      - "~/.cursor/rules"
+    principles:
+      - "~/.cursor/rules"
+    workflows: []
+    files: []
+  supports_compile: true
+
+claude:
+  name: "Claude Code"
+  description: "Anthropic Claude Code CLI"
+  # Skills: Open AgentSkills standard.
+  # Layout: .claude/skills/<skill-name>/SKILL.md
+  skill_format: "folder_skill_md"
+  local:
+    skills:
+      - ".claude/skills"
+    principles:
+      - ".claude/rules"
+    workflows:
+      - ".claude/commands"
+    files:
+      - "CLAUDE.md"
+  global:
+    skills:
+      - "~/.claude/skills"
+    principles:
+      - "~/.claude/rules"
+    workflows:
+      - "~/.claude/commands"
+    files: []
+  supports_compile: true
+
+gemini:
+  name: "Gemini/Antigravity"
+  description: "Google Gemini CLI / Antigravity AI SDK"
+  # Skills: Open AgentSkills standard.
+  # Layout: .agents/skills/<skill-name>/SKILL.md
+  skill_format: "folder_skill_md"
+  local:
+    skills:
+      - ".agents/skills"
+    principles:
+      - ".agents/rules"
+    workflows:
+      - ".agents/workflows"
+    files: []
+  global:
+    skills:
+      - "~/.gemini/config/skills"
+    principles:
+      - "~/.gemini/config/rules"
+    workflows: []
+    files: []
+  supports_compile: false
+
+devin:
+  name: "Devin"
+  description: "Cognition AI Autonomous Software Engineer"
+  # Skills: Open AgentSkills standard.
+  # Layout: .devin/skills/<skill-name>/SKILL.md
+  # Devin ALSO reads .agents/skills/ for cross-tool compatibility.
+  skill_format: "folder_skill_md"
+  local:
+    skills:
+      - ".devin/skills"
+      - ".agents/skills"
+    principles:
+      - ".devin/rules"
+    workflows:
+      - ".devin/workflows"
+    files:
+      - "AGENTS.md"
+      - ".devin/instructions.md"
+  global:
+    skills:
+      - "~/.config/devin/skills"
+    principles: []
+    workflows: []
+    files:
+      - "~/.config/devin/AGENTS.md"
+  supports_compile: true
+
+codex:
+  name: "Codex"
+  description: "OpenAI Codex CLI Agent"
+  # Skills: Open AgentSkills standard.
+  # Layout: .codex/skills/<skill-name>/SKILL.md
+  skill_format: "folder_skill_md"
+  local:
+    skills:
+      - ".codex/skills"
+    principles:
+      - ".codex/rules"
+    workflows:
+      - ".codex/workflows"
+    files:
+      - "AGENTS.md"
+  global:
+    skills:
+      - "~/.codex/skills"
+    principles: []
+    workflows: []
+    files:
+      - "~/.codex/AGENTS.md"
+  supports_compile: true
+
+windsurf:
+  name: "Windsurf"
+  description: "Codeium Windsurf / Cascade AI IDE"
+  # Rules and workflows are flat .md files. No subfolder/SKILL.md.
+  # Windsurf has no separate "skills" concept - rules serve that purpose.
+  skill_format: "flat_md"
+  local:
+    skills:
+      - ".windsurf/rules"
+    principles:
+      - ".windsurf/rules"
+    workflows:
+      - ".windsurf/workflows"
+    files:
+      - ".windsurfrules"
+  global:
+    skills: []
+    principles: []
+    workflows: []
+    files: []
+  supports_compile: true
+
+copilot:
+  name: "GitHub Copilot"
+  description: "GitHub / Microsoft Copilot AI Assistant"
+  # Copilot has no skills or workflows folder concept at all.
+  # Only flat .md instruction files with optional frontmatter.
+  skill_format: "none"
+  local:
+    skills: []
+    principles:
+      - ".github/instructions"
+    workflows: []
+    files:
+      - ".github/copilot-instructions.md"
+  global:
+    skills: []
+    principles: []
+    workflows: []
+    files: []
+  supports_compile: true

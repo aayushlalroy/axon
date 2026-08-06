@@ -1,45 +1,121 @@
 #!/usr/bin/env bash
+# =============================================================================
+# Axon CLI — Install / Update Script
+#
+# Works on macOS and Linux.
+# Re-running this script also updates an existing installation.
+#
+# Usage:
+#   curl -sSL https://raw.githubusercontent.com/aayushlalroy/axon/main/install.sh | bash
+#   bash install.sh                    # install latest
+#   bash install.sh --version v0.2.0  # install specific tag/branch
+# =============================================================================
 
-set -e
+set -euo pipefail
 
 REPO_URL="https://github.com/aayushlalroy/axon.git"
 ENV_DIR="$HOME/.axon-env"
 BIN_DIR="$HOME/.local/bin"
+VERSION="${AXON_VERSION:-}"   # optionally override via env var
 
-# Colors for output
+# Parse --version flag
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --version|-v)
+            VERSION="$2"
+            shift 2
+            ;;
+        *)
+            echo "Unknown argument: $1"
+            exit 1
+            ;;
+    esac
+done
+
+# ── Colors ────────────────────────────────────────────────────────────────────
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
-NC='\033[0m' # No Color
+BOLD='\033[1m'
+NC='\033[0m'
 
-echo -e "${GREEN}Starting Axon CLI Installation...${NC}"
+info()    { echo -e "${GREEN}[axon]${NC} $*"; }
+warn()    { echo -e "${YELLOW}[axon] Warning:${NC} $*"; }
+error()   { echo -e "${RED}[axon] Error:${NC} $*" >&2; exit 1; }
+section() { echo -e "\n${BOLD}▸ $*${NC}"; }
 
-if ! command -v python3 &> /dev/null; then
-    echo -e "${RED}Error: 'python3' is required but was not found.${NC}"
-    exit 1
+# ── Pre-flight checks ─────────────────────────────────────────────────────────
+section "Pre-flight checks"
+
+if ! command -v python3 &>/dev/null; then
+    error "'python3' is required but was not found. Install Python 3.9+ and retry."
 fi
 
-echo -e "${YELLOW}Setting up isolated environment in ${ENV_DIR}...${NC}"
-# Use the built-in venv module to create a safe, isolated python environment
+PY_VERSION=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
+PY_MAJOR=$(echo "$PY_VERSION" | cut -d. -f1)
+PY_MINOR=$(echo "$PY_VERSION" | cut -d. -f2)
+
+if [[ "$PY_MAJOR" -lt 3 ]] || ( [[ "$PY_MAJOR" -eq 3 ]] && [[ "$PY_MINOR" -lt 9 ]] ); then
+    error "Python 3.9+ is required. Found Python $PY_VERSION."
+fi
+
+info "Python $PY_VERSION — OK"
+
+# ── Determine install target ──────────────────────────────────────────────────
+if [[ -n "$VERSION" ]]; then
+    INSTALL_TARGET="git+${REPO_URL}@${VERSION}"
+    section "Installing Axon CLI @ ${VERSION}"
+else
+    INSTALL_TARGET="git+${REPO_URL}"
+    section "Installing / Updating Axon CLI (latest)"
+fi
+
+# ── Create/reuse isolated venv ────────────────────────────────────────────────
+section "Setting up isolated environment"
+
+if [[ -d "$ENV_DIR" ]]; then
+    info "Reusing existing environment at $ENV_DIR"
+else
+    info "Creating new environment at $ENV_DIR"
+fi
+
 python3 -m venv "$ENV_DIR"
 
-echo -e "${YELLOW}Installing/Updating Axon CLI from GitHub...${NC}"
-# Use the isolated pip to install directly from git, forcing upgrade if already installed
-"$ENV_DIR/bin/pip" install --upgrade "git+${REPO_URL}"
+# ── Install / upgrade ─────────────────────────────────────────────────────────
+section "Fetching and installing package"
+"$ENV_DIR/bin/pip" install --quiet --upgrade pip
+"$ENV_DIR/bin/pip" install --quiet --upgrade "$INSTALL_TARGET"
 
-echo -e "${YELLOW}Creating executable link...${NC}"
+# ── Link executable ───────────────────────────────────────────────────────────
+section "Linking executable"
 mkdir -p "$BIN_DIR"
-
-# Force symlink the executable to the local bin directory
 ln -sf "$ENV_DIR/bin/axon" "$BIN_DIR/axon"
+info "Linked: $BIN_DIR/axon → $ENV_DIR/bin/axon"
 
-echo -e "\n${GREEN}Success! Axon CLI is installed.${NC}"
+INSTALLED_VERSION=$("$ENV_DIR/bin/axon" version 2>/dev/null || echo "unknown")
+info "Installed version: $INSTALLED_VERSION"
 
-# Warn the user if ~/.local/bin is not in their system PATH
+# ── PATH check ────────────────────────────────────────────────────────────────
 if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
-    echo -e "${YELLOW}Warning: $BIN_DIR is not in your PATH.${NC}"
-    echo -e "You may need to add this line to your ~/.zshrc or ~/.bash_profile:"
-    echo -e "  export PATH=\"$BIN_DIR:\$PATH\""
+    warn "$BIN_DIR is not in your PATH."
+    echo ""
+    echo "  Add this line to your ~/.zshrc or ~/.bash_profile:"
+    echo ""
+
+    SHELL_NAME=$(basename "${SHELL:-bash}")
+    case "$SHELL_NAME" in
+        zsh)   echo "    echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.zshrc && source ~/.zshrc" ;;
+        bash)  echo "    echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.bash_profile && source ~/.bash_profile" ;;
+        *)     echo "    export PATH=\"$BIN_DIR:\$PATH\"" ;;
+    esac
+    echo ""
 fi
 
-echo -e "\nTo get started, try running: ${YELLOW}axon --help${NC}"
+# ── Done ──────────────────────────────────────────────────────────────────────
+echo ""
+echo -e "${GREEN}${BOLD}✓ Axon CLI installed successfully!${NC}"
+echo ""
+echo "  axon --help        show all commands"
+echo "  axon version       show installed version"
+echo "  axon agents        list supported AI agents"
+echo ""
