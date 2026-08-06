@@ -64,25 +64,38 @@ def list_items(show_all, agent):
             continue
         console.print(f"\n[bold underline]{ADAPTERS[ag].name}[/bold underline]")
         
-        # Determine local vs global for this agent
-        # For V1, we just print the state from config.yaml
         agent_config = config.get("agents", {}).get(ag, {})
         
         local_skills = agent_config.get("local", {}).get("skills", [])
         global_skills = agent_config.get("global", {}).get("skills", [])
+        local_principles = agent_config.get("local", {}).get("principles", [])
+        global_principles = agent_config.get("global", {}).get("principles", [])
         
-        if not local_skills and not global_skills:
+        if not local_skills and not global_skills and not local_principles and not global_principles:
             console.print("  [dim]No items enabled.[/dim]")
             continue
             
-        if local_skills:
+        if local_skills or local_principles:
             console.print("  [bold]Local:[/bold]")
-            for s in local_skills:
-                console.print(f"    - {s}")
-        if global_skills:
+            if local_skills:
+                console.print("    [bold]Skills:[/bold]")
+                for s in local_skills:
+                    console.print(f"      - {s}")
+            if local_principles:
+                console.print("    [bold]Principles:[/bold]")
+                for p in local_principles:
+                    console.print(f"      - {p}")
+
+        if global_skills or global_principles:
             console.print("  [bold]Global:[/bold]")
-            for s in global_skills:
-                console.print(f"    - {s}")
+            if global_skills:
+                console.print("    [bold]Skills:[/bold]")
+                for s in global_skills:
+                    console.print(f"      - {s}")
+            if global_principles:
+                console.print("    [bold]Principles:[/bold]")
+                for p in global_principles:
+                    console.print(f"      - {p}")
 
 @cli.command()
 @click.argument('source_path', type=click.Path(exists=True))
@@ -119,21 +132,46 @@ def add(source_path, name):
         console.print(f"[bold green]Successfully staged '{item_name}'.[/bold green]")
         console.print("[dim]Use 'axon enable' to activate it.[/dim]")
 
+def _resolve_item_type(arg_list, command_name="enable"):
+    """Parse positional arguments to detect explicit item_type or auto-detect from staging."""
+    if not arg_list:
+        return None, []
+    
+    first = arg_list[0].lower()
+    if first in ['skill', 'skills', 'principle', 'principles']:
+        explicit_type = 'skill' if first.startswith('skill') else 'principle'
+        return explicit_type, list(arg_list[1:])
+    else:
+        return None, list(arg_list)
+
 @cli.command()
-@click.argument('item_type', type=click.Choice(['skill', 'principle']))
-@click.argument('names', nargs=-1, required=True)
+@click.argument('args', nargs=-1, required=True)
 @click.option('--global/--local', 'is_global', default=False, help="Enable globally or locally")
 @click.option('--agent', help="Target specific agent (e.g. cursor)")
-def enable(item_type, names, is_global, agent):
-    """Enable one or more skills/principles."""
+def enable(args, is_global, agent):
+    """Enable one or more skills/principles. Auto-detects staged type if omitted."""
+    explicit_type, names = _resolve_item_type(args, "enable")
+    if not names:
+        console.print("[red]Error: Please specify one or more skill/principle names to enable.[/red]")
+        return
+
     staged = get_staged_items()
-    valid_items = staged[f"{item_type}s"]
-    
     agents_to_target = [agent] if agent else ADAPTERS.keys()
     
     for name in names:
+        item_type = explicit_type
+        if not item_type:
+            if name in staged["principles"]:
+                item_type = "principle"
+            elif name in staged["skills"]:
+                item_type = "skill"
+            else:
+                console.print(f"[red]Error: '{name}' is not staged as a skill or principle in ~/.axon.[/red]")
+                continue
+
+        valid_items = staged[f"{item_type}s"]
         if name not in valid_items:
-            console.print(f"[red]Error: '{name}' is not a staged {item_type}.[/red]")
+            console.print(f"[red]Error: '{name}' is staged as a {'skill' if item_type == 'principle' else 'principle'}, not a {item_type}.[/red]")
             continue
             
         src_path = AXON_DIR / f"{item_type}s" / name
@@ -180,26 +218,46 @@ def enable(item_type, names, is_global, agent):
 
 
 @cli.command()
-@click.argument('item_type', type=click.Choice(['skill', 'principle']))
-@click.argument('names', nargs=-1, required=True)
+@click.argument('args', nargs=-1, required=True)
 @click.option('--global/--local', 'is_global', default=False, help="Disable globally or locally")
 @click.option('--agent', help="Target specific agent (e.g. cursor)")
-def disable(item_type, names, is_global, agent):
-    """Disable one or more skills/principles."""
+def disable(args, is_global, agent):
+    """Disable one or more skills/principles. Auto-detects staged type if omitted."""
+    explicit_type, names = _resolve_item_type(args, "disable")
+    if not names:
+        console.print("[red]Error: Please specify one or more skill/principle names to disable.[/red]")
+        return
+
+    staged = get_staged_items()
     agents_to_target = [agent] if agent else ADAPTERS.keys()
     
     for name in names:
+        item_type = explicit_type
+        if not item_type:
+            if name in staged["principles"]:
+                item_type = "principle"
+            elif name in staged["skills"]:
+                item_type = "skill"
+            else:
+                # Fallback to checking config if un-staged
+                item_type = "principle"
+
+        # Verify that explicit type matches staging
+        if explicit_type:
+            other_type = "skill" if explicit_type == "principle" else "principle"
+            if name in staged[f"{other_type}s"] and name not in staged[f"{explicit_type}s"]:
+                console.print(f"[yellow]Warning: '{name}' is staged as a {other_type}, not a {explicit_type}. Skipping.[/yellow]")
+                continue
+
         for ag in agents_to_target:
             if ag not in ADAPTERS:
                 continue
             adapter = ADAPTERS[ag]
             
             target_dirs = adapter.get_dir_paths(item_type, is_global=is_global)
-            opposite_dirs = adapter.get_opposite_dir_paths(item_type, is_global=is_global)
-            all_dirs = list(dict.fromkeys(target_dirs + opposite_dirs))
             scope = "global" if is_global else "local"
             
-            for target_dir in all_dirs:
+            for target_dir in target_dirs:
                 dest_path = target_dir / name
                 if dest_path.exists() and dest_path.is_symlink():
                     dest_path.unlink()

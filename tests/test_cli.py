@@ -130,23 +130,53 @@ def test_dotfile_scaffolding_and_stale_cleanup(runner, tmp_path, monkeypatch):
     clauderc_path.mkdir()
     assert clauderc_path.is_dir()
 
-def test_add_when_axon_dir_missing(runner, tmp_path, monkeypatch):
+def test_auto_detection_and_list_principles(runner, tmp_path, monkeypatch):
     import axon.cli as cli_module
     import axon.core as core_module
+    from axon.adapters import AgentAdapter
 
-    mock_axon = tmp_path / "non_existent_axon"
+    mock_axon = tmp_path / ".axon"
+    mock_principles = mock_axon / "principles"
+    mock_principles.mkdir(parents=True)
+    (mock_principles / "contract-first.md").write_text("contract first rule")
+
     monkeypatch.setattr(cli_module, "AXON_DIR", mock_axon)
     monkeypatch.setattr(core_module, "AXON_DIR", mock_axon)
     monkeypatch.setattr(core_module, "CONFIG_FILE", mock_axon / "config.yaml")
 
-    sample_rule = tmp_path / "sample-rule.md"
-    sample_rule.write_text("sample content")
+    agents_rules = tmp_path / ".agents" / "rules"
+    agents_rules.mkdir(parents=True)
 
-    assert not mock_axon.exists()
+    test_adapters = {
+        "gemini": AgentAdapter(
+            name="Gemini/Antigravity",
+            local_principle_dirs=[agents_rules]
+        )
+    }
+    monkeypatch.setattr(cli_module, "ADAPTERS", test_adapters)
+    monkeypatch.chdir(tmp_path)
 
-    res = runner.invoke(cli, ['add', str(sample_rule)], input='2\ny\n')
-    assert res.exit_code == 0
-    assert (mock_axon / "principles" / "sample-rule.md").is_file()
+    # 1. Enable without specifying 'principle' explicitly (auto-detection)
+    res_enable = runner.invoke(cli, ['enable', 'contract-first.md'])
+    assert res_enable.exit_code == 0
+    assert (agents_rules / "contract-first.md").is_symlink()
+
+    # 2. Check that 'axon list' displays Principles
+    res_list = runner.invoke(cli, ['list'])
+    assert res_list.exit_code == 0
+    assert "Principles:" in res_list.output
+    assert "contract-first.md" in res_list.output
+
+    # 3. Disabling as a skill should NOT touch principles
+    res_disable_skill = runner.invoke(cli, ['disable', 'skill', 'contract-first.md'])
+    assert "Warning" in res_disable_skill.output or res_disable_skill.exit_code == 0
+    assert (agents_rules / "contract-first.md").is_symlink()
+
+    # 4. Disable without specifying item_type (auto-detection)
+    res_disable_auto = runner.invoke(cli, ['disable', 'contract-first.md'])
+    assert res_disable_auto.exit_code == 0
+    assert not (agents_rules / "contract-first.md").exists()
+
 
 
 
