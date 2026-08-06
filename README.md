@@ -30,6 +30,22 @@ cd axon
 pipx install .
 ```
 
+### Uninstallation
+
+To uninstall Axon using our automatic uninstallation script, run:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/aayushlalroy/axon/main/uninstall.sh | bash
+```
+
+Alternatively, you can manually remove the executable link and environment:
+```bash
+rm -f ~/.local/bin/axon
+rm -rf ~/.axon-env
+# Optionally remove global staging hub (~/.axon):
+rm -rf ~/.axon
+```
+
 ### Usage
 
 1. **Initialize a Project**:
