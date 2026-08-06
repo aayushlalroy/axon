@@ -17,3 +17,97 @@ def test_list_command(runner):
     result = runner.invoke(cli, ['list', '--all'])
     assert result.exit_code == 0
     assert "All Staged Items" in result.output
+
+def test_enable_disable_sync_linking(runner, tmp_path, monkeypatch):
+    import axon.cli as cli_module
+    import axon.core as core_module
+    from axon.adapters import ADAPTERS, AgentAdapter
+    from pathlib import Path
+
+    # Stage a mock principle and mock skill
+    mock_axon = tmp_path / ".axon"
+    mock_principles = mock_axon / "principles"
+    mock_skills = mock_axon / "skills"
+    mock_principles.mkdir(parents=True)
+    mock_skills.mkdir(parents=True)
+    
+    (mock_principles / "my-rule.md").write_text("rule content")
+    (mock_skills / "my-skill.md").write_text("skill content")
+
+    monkeypatch.setattr(cli_module, "AXON_DIR", mock_axon)
+    monkeypatch.setattr(core_module, "AXON_DIR", mock_axon)
+    monkeypatch.setattr(core_module, "CONFIG_FILE", mock_axon / "config.yaml")
+
+    # Local target dirs
+    local_agents_skills = tmp_path / ".agents" / "skills"
+    local_agents_rules = tmp_path / ".agents" / "rules"
+    local_agents_skills.mkdir(parents=True)
+    local_agents_rules.mkdir(parents=True)
+
+    # Global target dirs
+    global_gemini_skills = tmp_path / "global_gemini" / "skills"
+    global_gemini_rules = tmp_path / "global_gemini" / "rules"
+    global_gemini_skills.mkdir(parents=True)
+    global_gemini_rules.mkdir(parents=True)
+
+    # Patch gemini adapter global paths for isolated testing
+    test_adapters = {
+        "gemini": AgentAdapter(
+            name="Gemini/Antigravity",
+            local_skill_paths=[local_agents_skills],
+            local_principle_paths=[local_agents_rules],
+            global_skill_paths=[global_gemini_skills],
+            global_principle_paths=[global_gemini_rules]
+        )
+    }
+    monkeypatch.setattr(cli_module, "ADAPTERS", test_adapters)
+    monkeypatch.chdir(tmp_path)
+
+    # --- 1. ENABLE LOCAL ---
+    res_en_rule = runner.invoke(cli, ['enable', 'principle', 'my-rule.md'])
+    assert res_en_rule.exit_code == 0
+    assert (local_agents_rules / "my-rule.md").is_symlink()
+    assert not (local_agents_skills / "my-rule.md").exists()
+
+    res_en_skill = runner.invoke(cli, ['enable', 'skill', 'my-skill.md'])
+    assert res_en_skill.exit_code == 0
+    assert (local_agents_skills / "my-skill.md").is_symlink()
+    assert not (local_agents_rules / "my-skill.md").exists()
+
+    # --- 2. ENABLE GLOBAL ---
+    res_en_glob_rule = runner.invoke(cli, ['enable', 'principle', 'my-rule.md', '--global'])
+    assert res_en_glob_rule.exit_code == 0
+    assert (global_gemini_rules / "my-rule.md").is_symlink()
+    assert not (global_gemini_skills / "my-rule.md").exists()
+
+    res_en_glob_skill = runner.invoke(cli, ['enable', 'skill', 'my-skill.md', '--global'])
+    assert res_en_glob_skill.exit_code == 0
+    assert (global_gemini_skills / "my-skill.md").is_symlink()
+    assert not (global_gemini_rules / "my-skill.md").exists()
+
+    # --- 3. DISABLE LOCAL & GLOBAL ---
+    res_dis_rule = runner.invoke(cli, ['disable', 'principle', 'my-rule.md'])
+    assert res_dis_rule.exit_code == 0
+    assert not (local_agents_rules / "my-rule.md").exists()
+
+    res_dis_skill = runner.invoke(cli, ['disable', 'skill', 'my-skill.md', '--global'])
+    assert res_dis_skill.exit_code == 0
+    assert not (global_gemini_skills / "my-skill.md").exists()
+
+    # --- 4. SYNC ---
+    # Delete remaining local skill symlink manually to test sync restoration
+    if (local_agents_skills / "my-skill.md").exists():
+        (local_agents_skills / "my-skill.md").unlink()
+
+    res_sync = runner.invoke(cli, ['sync'], input='y\n')
+    assert res_sync.exit_code == 0
+    # Should restore local skill symlink because it's still enabled in config.yaml
+    assert (local_agents_skills / "my-skill.md").is_symlink()
+    # Should restore global principle symlink because it's still enabled in config.yaml
+    assert (global_gemini_rules / "my-rule.md").is_symlink()
+    # Confirm correct location separation after sync
+    assert not (local_agents_rules / "my-skill.md").exists()
+    assert not (global_gemini_skills / "my-rule.md").exists()
+
+
+

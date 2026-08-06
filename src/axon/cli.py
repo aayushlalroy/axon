@@ -143,12 +143,12 @@ def enable(item_type, names, is_global, agent):
                 continue
             adapter = ADAPTERS[ag]
             
-            target_paths = adapter.global_paths if is_global else adapter.local_paths
+            target_paths = adapter.get_paths(item_type, is_global=is_global)
             scope = "global" if is_global else "local"
             
-            if is_global and not adapter.global_paths:
-                console.print(f"[yellow]Warning: {adapter.name} does not support global file-based rules. Falling back to local.[/yellow]")
-                target_paths = adapter.local_paths
+            if is_global and not target_paths:
+                console.print(f"[yellow]Warning: {adapter.name} does not support global file-based {item_type}s. Falling back to local.[/yellow]")
+                target_paths = adapter.get_paths(item_type, is_global=False)
                 scope = "local"
                 
             for target_dir in target_paths:
@@ -190,11 +190,11 @@ def disable(item_type, names, is_global, agent):
                 continue
             adapter = ADAPTERS[ag]
             
-            target_paths = adapter.global_paths if is_global else adapter.local_paths
+            target_paths = adapter.get_paths(item_type, is_global=is_global)
             scope = "global" if is_global else "local"
             
-            if is_global and not adapter.global_paths:
-                target_paths = adapter.local_paths
+            if is_global and not target_paths:
+                target_paths = adapter.get_paths(item_type, is_global=False)
                 scope = "local"
                 
             for target_dir in target_paths:
@@ -205,7 +205,10 @@ def disable(item_type, names, is_global, agent):
                 if dest_path.exists() and dest_path.is_symlink():
                     dest_path.unlink()
                     console.print(f"[yellow]Disabled '{name}' in {adapter.name} ({scope})[/yellow]")
-                    update_config_state(ag, scope, f"{item_type}s", name, enable=False)
+                elif dest_path.exists():
+                    console.print(f"[yellow]Warning: '{dest_path}' is not a symlink. Skipping deletion.[/yellow]")
+            
+            update_config_state(ag, scope, f"{item_type}s", name, enable=False)
 
 @cli.command()
 def sync():
@@ -222,15 +225,16 @@ def sync():
             
         adapter = ADAPTERS[ag]
         for scope, item_types in scopes.items():
-            target_paths = adapter.global_paths if scope == "global" else adapter.local_paths
-            
-            for target_dir in target_paths:
-                if target_dir.suffix:
-                    continue
+            is_glob = (scope == "global")
+            for item_type_key, names in item_types.items():
+                target_paths = adapter.get_paths(item_type_key, is_global=is_glob)
                 
-                for item_type, names in item_types.items():
+                for target_dir in target_paths:
+                    if target_dir.suffix:
+                        continue
+                    
                     for name in names:
-                        src_path = AXON_DIR / item_type / name
+                        src_path = AXON_DIR / item_type_key / name
                         dest_path = target_dir / name
                         
                         if dest_path.exists() and dest_path.is_symlink():
