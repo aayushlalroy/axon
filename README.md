@@ -21,9 +21,9 @@ The easiest way to install (and update) Axon is using our automatic installation
 curl -sSL https://raw.githubusercontent.com/aayushlalroy/axon/main/install.sh | bash
 ```
 
-*Note: The installer uses `pipx` under the hood to ensure Axon is installed safely in an isolated environment without breaking your global Python packages.*
+*Note: The installer uses standard Python `venv` under the hood to ensure Axon is installed safely in an isolated environment (`~/.axon-env`) without breaking your global Python packages. It requires absolutely zero external dependencies.*
 
-Alternatively, you can install manually from source:
+Alternatively, you can install manually from source into an isolated environment using `uv` or `pipx`:
 ```bash
 git clone https://github.com/aayushlalroy/axon.git
 cd axon
