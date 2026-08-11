@@ -7,6 +7,20 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 
 ---
 
+## [1.0.0] — 2026-08-12
+
+### Added
+- **Official v1.0.0 Production Release** of Axon — Universal Skill & Constitution Management System for AI coding agents.
+- **Bulk Staging (`axon import`)** — stage entire repositories/assets trees from folder auto-scanning or `axon-import.yaml` manifests.
+- **Un-staging & Lifecycle Deletion (`axon remove`)** — purge staged hub assets, symlinks, physical local overrides, and configuration state.
+- **Auxiliary / Additional Files Support** — preserve non-primary skill assets (`schema-code-sync.md`, `CHECKS.md`, `CRITIQUE.md`, etc.), link them into flat-file agent directories (Cursor/Windsurf), and track shared dependencies in `config.yaml`.
+- **Multi-Type Asset Staging** — stage assets as any combination of `skill`, `principle`, `workflow` with strict validation errors and interactive selection prompts.
+- **Customizable Configuration System** — global `~/.axon/config.yaml` and project `axon-config.yaml` support for `defaults.name_source`, `defaults.scope`, and `defaults.ignore_patterns`.
+- **Community AI Assets Link** — integrated starting guide for [github.com/aayushlalroy/ai-assets](https://github.com/aayushlalroy/ai-assets).
+- **185 Unit, Integration & E2E Sandbox Matrix Tests** — 100% test pass rate.
+
+---
+
 ## [0.3.0b1] — 2026-08-11 *(beta)*
 
 ### Added

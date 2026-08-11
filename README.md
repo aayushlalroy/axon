@@ -222,27 +222,44 @@ principles:
   - path: assets/principles/claim-tagging.md
 ```
 
-- **Default Ignores**: `README.md`, `INDEX.md`, `.DS_Store`, `.git*`, `*.tmp` are ignored by default.
-- **Sample Import Manifest**: See [`axon-import.yaml.sample`](./axon-import.yaml.sample).
-- **Sample Config File**: See [`axon-config.yaml.sample`](./axon-config.yaml.sample).
+---
+
+## Community AI Assets
+
+Get pre-built, production-ready AI skills, principles, and workflows from the official community assets repository:
+👉 [**github.com/aayushlalroy/ai-assets**](https://github.com/aayushlalroy/ai-assets)
+
+Quickly clone and stage all community skills using `axon import`:
+
+```bash
+git clone https://github.com/aayushlalroy/ai-assets.git
+cd ai-assets
+axon import . --config axon-import.yaml
+axon enable --all --agent cursor
+```
+
+---
+
+## Documentation Navigation Index
+
+- 📘 **[CONFIG.md](./CONFIG.md)** — Complete configuration schema and settings reference (`axon-config.yaml`, `axon-import.yaml`).
+- 🏗️ **[ARCHITECTURE.md](./ARCHITECTURE.md)** — Technical hub-and-spoke architecture, linking strategies, and agent adapters.
+- 📜 **[CHANGELOG.md](./CHANGELOG.md)** — Full version history, beta notes, and release logs.
+- 🤖 **[AI_CONTEXT.md](./AI_CONTEXT.md)** — Architectural notes and instructions for AI agents modifying Axon.
+- 📋 **[axon-config.yaml.sample](./axon-config.yaml.sample)** — Sample project & global configuration file.
+- 📋 **[axon-import.yaml.sample](./axon-import.yaml.sample)** — Sample bulk import manifest.
 
 ---
 
 ## Releasing a new version (maintainers)
 
 ```bash
-bash scripts/release.sh 0.3.0 --push
+bash scripts/release.sh 1.0.0 --push
 ```
 
-This bumps `pyproject.toml`, inserts a CHANGELOG entry, commits, tags `v0.3.0`, and pushes. GitHub Actions then automatically creates a GitHub Release with the CHANGELOG notes.
+This bumps `pyproject.toml`, inserts a CHANGELOG entry, commits, tags `v1.0.0`, and pushes. GitHub Actions then automatically creates a GitHub Release with the CHANGELOG notes.
 
 See [`CHANGELOG.md`](./CHANGELOG.md) for the full history.
-
----
-
-## Architecture
-
-See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the hub-and-spoke design and how `AgentAdapter` drives different linking strategies per agent.
 
 ---
 

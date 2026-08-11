@@ -90,13 +90,14 @@ def _patch_axon(monkeypatch, tmp_path):
 # ─────────────────────────────────────────────────────────
 
 def test_version_command(runner):
+    from axon import __version__
     res = runner.invoke(cli, ["--version"])
     assert res.exit_code == 0
-    assert "0.3.0b5" in res.output
+    assert __version__ in res.output
 
     res = runner.invoke(cli, ["version"])
     assert res.exit_code == 0
-    assert "0.3.0b5" in res.output
+    assert __version__ in res.output
 
 
 def test_list_only_shows_physically_present_items(runner, tmp_path, monkeypatch):
