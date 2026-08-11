@@ -365,6 +365,15 @@ def extract_name_from_source(src: Path, name_source: str = "auto") -> str:
     - 'file': Use file stem.
     - 'auto': Try frontmatter first, then folder (for dir) or file stem (for file).
     """
+    if name_source == "auto":
+        try:
+            cfg = load_config()
+            cfg_ns = cfg.get("defaults", {}).get("name_source") or cfg.get("import", {}).get("name_source")
+            if cfg_ns and cfg_ns in ("frontmatter", "folder", "file"):
+                name_source = cfg_ns
+        except Exception:
+            pass
+
     if name_source == "folder":
         return src.name if src.is_dir() else src.parent.name
     if name_source == "file":
