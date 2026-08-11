@@ -2,6 +2,18 @@
 
 ## [1.1.0] — 2026-08-12
 
+### Added
+- (fill in)
+
+### Changed
+- (fill in)
+
+### Fixed
+- (fill in)
+
+
+## [1.1.0] — 2026-08-12
+
 ### Fixed
 - **Multi-Type Disambiguation (`3) all` option)** — Fixed `axon enable` and `axon disable` when selecting `3) all` on multi-type staged items (e.g. staged as `skill` and `principle`). It now only targets the actual staged types for that item rather than blindly attempting non-existent types (`workflow`).
 
