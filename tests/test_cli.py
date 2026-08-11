@@ -89,6 +89,16 @@ def _patch_axon(monkeypatch, tmp_path):
 # Basic smoke tests
 # ─────────────────────────────────────────────────────────
 
+def test_version_command(runner):
+    res = runner.invoke(cli, ["--version"])
+    assert res.exit_code == 0
+    assert "0.3.0b2" in res.output
+
+    res = runner.invoke(cli, ["version"])
+    assert res.exit_code == 0
+    assert "0.3.0b2" in res.output
+
+
 def test_agents_command(runner):
     """All agents should appear in 'axon agents' output."""
     result = runner.invoke(cli, ["agents"])
