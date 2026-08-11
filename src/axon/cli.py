@@ -630,10 +630,15 @@ def _toggle_auto_invocation_cmd(item_type_or_name, names, is_global, agent, enab
                 target_dirs = adapter.get_dir_paths(item_type, is_global=True)
                 dest_name = _dest_name_for(name, adapter, item_type)
 
+                if item_type == "skill" and adapter.skill_format in (SKILL_FORMAT_FLAT_MDC, SKILL_FORMAT_FLAT_MD):
+                    base_src = src_path / "SKILL.md"
+                else:
+                    base_src = src_path
+
                 for target_dir in target_dirs:
                     dest_path = target_dir / dest_name
                     if dest_path.exists():
-                        ensure_local_target(src_path, dest_path, require_copy=False)
+                        ensure_local_target(base_src, dest_path, require_copy=False)
                         update_config_state(ag, scope, f"{item_type}s", name, enable=True)
         else:
             for ag in agents_to_target:
@@ -644,11 +649,23 @@ def _toggle_auto_invocation_cmd(item_type_or_name, names, is_global, agent, enab
                 target_dirs = adapter.get_dir_paths(item_type, is_global=False)
                 dest_name = _dest_name_for(name, adapter, item_type)
 
+                if item_type == "skill" and adapter.skill_format in (SKILL_FORMAT_FLAT_MDC, SKILL_FORMAT_FLAT_MD):
+                    base_src = src_path / "SKILL.md"
+                else:
+                    base_src = src_path
+
+                base_auto = get_auto_invocation_status(base_src)
+                need_override = (enable_auto != base_auto)
+
                 for target_dir in target_dirs:
                     dest_path = target_dir / dest_name
-                    ensure_local_target(src_path, dest_path, require_copy=True)
-                    set_auto_invocation(dest_path, enable_auto)
-                    ensure_local_target(src_path, dest_path, require_copy=False)
+                    if need_override:
+                        ensure_local_target(base_src, dest_path, require_copy=True)
+                        set_auto_invocation(dest_path, enable_auto)
+                    else:
+                        if dest_path.exists() and not dest_path.is_symlink():
+                            set_auto_invocation(dest_path, enable_auto)
+                        ensure_local_target(base_src, dest_path, require_copy=False)
 
                     is_override = not dest_path.is_symlink()
                     storage_str = "local override" if is_override else "symlink"
