@@ -71,10 +71,12 @@ class AgentAdapter:
     def get_opposite_dir_paths(self, item_type: str, is_global: bool = False):
         """Return directory target paths of the OPPOSITE item type (stale symlink cleanup)."""
         t = item_type.rstrip("s").lower()
+        current_dirs = self.get_dir_paths(t, is_global=is_global)
         if t == "skill":
-            return self.global_principle_dirs if is_global else self.local_principle_dirs
+            opp_dirs = self.global_principle_dirs if is_global else self.local_principle_dirs
         else:  # principle / workflow
-            return self.global_skill_dirs if is_global else self.local_skill_dirs
+            opp_dirs = self.global_skill_dirs if is_global else self.local_skill_dirs
+        return [d for d in opp_dirs if d not in current_dirs]
 
     @property
     def all_local_dirs(self):

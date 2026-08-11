@@ -943,14 +943,16 @@ def _toggle_auto_invocation_cmd(item_type_or_name, names, is_global, agent, enab
 
 
 @cli.command()
-def sync():
+@click.option("-y", "--yes", is_flag=True, help="Skip confirmation prompt")
+def sync(yes):
     """Rebuild all symlinks from config.yaml (hard reset)."""
-    console.print(
-        "[bold red]Warning: This will forcefully recreate all symlinks from config.yaml.[/bold red]"
-    )
-    if not click.confirm("Proceed?"):
-        console.print("Sync aborted.")
-        return
+    if not yes:
+        console.print(
+            "[bold red]Warning: This will forcefully recreate all symlinks from config.yaml.[/bold red]"
+        )
+        if not click.confirm("Proceed?"):
+            console.print("Sync aborted.")
+            return
 
     config = load_config()
     for ag, scopes in config.get("agents", {}).items():

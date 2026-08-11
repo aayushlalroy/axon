@@ -189,8 +189,22 @@ def should_ignore_file(path: Path, custom_ignores: list[str] = None) -> bool:
     """Check if a file or path matches default or custom ignore patterns."""
     name = path.name
     patterns = list(DEFAULT_IGNORE_PATTERNS)
+    
+    # Load ignore_patterns from ~/.axon/config.yaml or local axon-config.yaml if present
+    try:
+        cfg = load_config()
+        cfg_ignores = cfg.get("defaults", {}).get("ignore_patterns", [])
+        if isinstance(cfg_ignores, list):
+            for pat in cfg_ignores:
+                if pat not in patterns:
+                    patterns.append(pat)
+    except Exception:
+        pass
+
     if custom_ignores:
-        patterns.extend(custom_ignores)
+        for pat in custom_ignores:
+            if pat not in patterns:
+                patterns.append(pat)
 
     import fnmatch
     for pat in patterns:
