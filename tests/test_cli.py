@@ -957,3 +957,66 @@ def test_copilot_has_no_skill_dirs():
 def test_all_agents_have_name():
     for key, adapter in ADAPTERS.items():
         assert adapter.name, f"Agent '{key}' has no name"
+
+
+def test_activate_deactivate_global(runner, monkeypatch, tmp_path):
+    mock_axon = _patch_axon(monkeypatch, tmp_path)
+    import axon.core as core
+    monkeypatch.setattr(core, "AXON_DIR", mock_axon)
+
+    skill_dir = mock_axon / "skills" / "test-skill"
+    skill_dir.mkdir(parents=True)
+    skill_md = skill_dir / "SKILL.md"
+    skill_md.write_text("---\nname: test-skill\ndisable-model-invocation: true\n---\n# Test Skill\n")
+
+    assert core.get_auto_invocation_status(skill_dir) is False
+
+    res = runner.invoke(cli, ['activate', 'skill', 'test-skill', '--global'])
+    assert res.exit_code == 0
+    assert "Activated 'test-skill' globally" in res.output
+    assert core.get_auto_invocation_status(skill_dir) is True
+
+    res = runner.invoke(cli, ['deactivate', 'skill', 'test-skill', '--global'])
+    assert res.exit_code == 0
+    assert "Deactivated 'test-skill' globally" in res.output
+    assert core.get_auto_invocation_status(skill_dir) is False
+
+
+def test_activate_deactivate_local_copy_and_convergence(runner, monkeypatch, tmp_path):
+    mock_axon = _patch_axon(monkeypatch, tmp_path)
+    import axon.core as core
+    monkeypatch.setattr(core, "AXON_DIR", mock_axon)
+
+    skill_dir = mock_axon / "skills" / "demo-skill"
+    skill_dir.mkdir(parents=True)
+    skill_md = skill_dir / "SKILL.md"
+    skill_md.write_text("---\nname: demo-skill\ndisable-model-invocation: true\n---\n# Demo Skill\n")
+
+    project_dir = tmp_path / "my_project"
+    project_dir.mkdir()
+    monkeypatch.chdir(project_dir)
+
+    res = runner.invoke(cli, ['enable', 'skill', 'demo-skill', '--agent', 'gemini'])
+    assert res.exit_code == 0
+
+    local_target = project_dir / ".agents" / "skills" / "demo-skill"
+    assert local_target.exists()
+
+    res = runner.invoke(cli, ['activate', 'skill', 'demo-skill', '--local', '--agent', 'gemini'])
+    assert res.exit_code == 0
+    norm_output = " ".join(res.output.split())
+    assert "Activated 'demo-skill' in Gemini/Antigravity" in norm_output
+
+    assert local_target.exists()
+    assert core.get_auto_invocation_status(local_target) is True
+    assert core.get_auto_invocation_status(skill_dir) is False
+
+    res = runner.invoke(cli, ['deactivate', 'skill', 'demo-skill', '--local', '--agent', 'gemini'])
+    assert res.exit_code == 0
+    norm_output_deact = " ".join(res.output.split())
+    assert "Deactivated 'demo-skill' in Gemini/Antigravity" in norm_output_deact
+
+    assert local_target.exists()
+    assert core.get_auto_invocation_status(local_target) is False
+
+

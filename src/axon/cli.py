@@ -6,6 +6,7 @@ import os
 from importlib.metadata import version as pkg_version, PackageNotFoundError
 from rich.console import Console
 from pathlib import Path
+from axon import __version__
 from axon.adapters import (
     ADAPTERS,
     scaffold_local_env,
@@ -25,6 +26,10 @@ from axon.core import (
     stage_workflow,
     extract_name_from_source,
     compile_principles_for_agent,
+    set_auto_invocation,
+    get_auto_invocation_status,
+    ensure_local_target,
+    is_content_equal,
 )
 
 console = Console()
@@ -188,6 +193,7 @@ def _do_disable_item(target_dir: Path, dest_name: str) -> bool:
 # ─────────────────────────────────────────────────────────
 
 @click.group()
+@click.version_option(__version__, "--version", "-v")
 def cli():
     """Axon: Skill & Constitution Management System for AI Agents"""
     pass
@@ -558,6 +564,96 @@ def disable(args, is_global, agent):
             update_config_state(ag, scope, f"{item_type}s", name, enable=False)
             if item_type == "principle":
                 compile_principles_for_agent(ag, scope)
+
+
+@cli.command()
+@click.argument("item_type_or_name", required=False)
+@click.argument("names", nargs=-1)
+@click.option("--global/--local", "is_global", default=False, help="Activate globally or locally")
+@click.option("--agent", multiple=True, help="Target specific agent(s)")
+def activate(item_type_or_name, names, is_global, agent):
+    """Enable model auto-invocation for one or more skills/principles."""
+    _toggle_auto_invocation_cmd(item_type_or_name, names, is_global, agent, enable_auto=True)
+
+
+@cli.command()
+@click.argument("item_type_or_name", required=False)
+@click.argument("names", nargs=-1)
+@click.option("--global/--local", "is_global", default=False, help="Deactivate globally or locally")
+@click.option("--agent", multiple=True, help="Target specific agent(s)")
+def deactivate(item_type_or_name, names, is_global, agent):
+    """Disable model auto-invocation for one or more skills/principles."""
+    _toggle_auto_invocation_cmd(item_type_or_name, names, is_global, agent, enable_auto=False)
+
+
+def _toggle_auto_invocation_cmd(item_type_or_name, names, is_global, agent, enable_auto: bool):
+    staged = get_staged_items()
+    explicit_type = None
+    all_names = []
+
+    if item_type_or_name:
+        if item_type_or_name.lower() in ("skill", "principle", "workflow"):
+            explicit_type = item_type_or_name.lower()
+            all_names = list(names)
+        else:
+            all_names = [item_type_or_name] + list(names)
+
+    if not all_names:
+        console.print("[red]Error: Please specify at least one skill/principle to toggle auto-invocation for.[/red]")
+        return
+
+    agents_to_target = _resolve_agents_to_target(agent)
+    status_str = "ON" if enable_auto else "OFF"
+    action_str = "Activated" if enable_auto else "Deactivated"
+
+    for name in all_names:
+        if explicit_type:
+            item_type = explicit_type
+        else:
+            detected_type, _ = _detect_staged_item_type(name, staged)
+            item_type = detected_type if detected_type else "skill"
+
+        src_path = AXON_DIR / f"{item_type}s" / name
+        if not src_path.exists():
+            src_path = AXON_DIR / item_type / name
+
+        if is_global:
+            if src_path.exists():
+                set_auto_invocation(src_path, enable_auto)
+            console.print(f"[bold green]{action_str} '{name}' globally (auto-invocation: {status_str})[/bold green]")
+
+            for ag in agents_to_target:
+                if ag not in ADAPTERS:
+                    continue
+                adapter = ADAPTERS[ag]
+                scope = "global"
+                target_dirs = adapter.get_dir_paths(item_type, is_global=True)
+                dest_name = _dest_name_for(name, adapter, item_type)
+
+                for target_dir in target_dirs:
+                    dest_path = target_dir / dest_name
+                    if dest_path.exists():
+                        ensure_local_target(src_path, dest_path, require_copy=False)
+                        update_config_state(ag, scope, f"{item_type}s", name, enable=True)
+        else:
+            for ag in agents_to_target:
+                if ag not in ADAPTERS:
+                    continue
+                adapter = ADAPTERS[ag]
+                scope = "local"
+                target_dirs = adapter.get_dir_paths(item_type, is_global=False)
+                dest_name = _dest_name_for(name, adapter, item_type)
+
+                for target_dir in target_dirs:
+                    dest_path = target_dir / dest_name
+                    ensure_local_target(src_path, dest_path, require_copy=True)
+                    set_auto_invocation(dest_path, enable_auto)
+                    ensure_local_target(src_path, dest_path, require_copy=False)
+
+                    is_override = not dest_path.is_symlink()
+                    storage_str = "local override" if is_override else "symlink"
+                    console.print(f"[green]{action_str} '{name}' in {adapter.name} ({scope}, auto-invocation: {status_str}, {storage_str})[/green]")
+                    update_config_state(ag, scope, f"{item_type}s", name, enable=True)
 
 
 @cli.command()

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "axon-cli"
-version = "0.2.0b1"
+version = "0.3.0b1"
 description = "Skill & Constitution Management System for AI Agents"
 readme = "README.md"
 authors = [{name = "Aayush Lal Roy"}]

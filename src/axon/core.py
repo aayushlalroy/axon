@@ -1,4 +1,5 @@
 import os
+import shutil
 import yaml
 from pathlib import Path
 from rich.console import Console
@@ -274,4 +275,135 @@ def _update_target_file_with_compiled_section(target_file: Path, compiled_sectio
             new_text = existing_text
 
     target_file.write_text(new_text, encoding="utf-8")
+
+
+def get_target_file(item_path: Path) -> Path:
+    """Return the markdown file containing frontmatter for a skill/principle."""
+    if item_path.is_dir():
+        skill_md = item_path / "SKILL.md"
+        if skill_md.exists():
+            return skill_md
+        md_files = list(item_path.glob("*.md")) + list(item_path.glob("*.mdc"))
+        if md_files:
+            return md_files[0]
+        return skill_md
+    return item_path
+
+
+def parse_frontmatter(file_path: Path) -> tuple[dict, str]:
+    """Parse YAML frontmatter and body from a markdown file."""
+    if not file_path.exists() or not file_path.is_file():
+        return {}, ""
+    content = file_path.read_text(encoding="utf-8")
+    lines = content.splitlines(keepends=True)
+    if not lines:
+        return {}, ""
+    
+    if lines[0].strip() == "---":
+        end_idx = -1
+        for i in range(1, len(lines)):
+            if lines[i].strip() == "---":
+                end_idx = i
+                break
+        if end_idx != -1:
+            fm_text = "".join(lines[1:end_idx])
+            body_text = "".join(lines[end_idx + 1:])
+            try:
+                fm_dict = yaml.safe_load(fm_text) or {}
+                if isinstance(fm_dict, dict):
+                    return fm_dict, body_text
+            except Exception:
+                pass
+    return {}, content
+
+
+def update_frontmatter(file_path: Path, updates: dict):
+    """Update YAML frontmatter of a markdown file while preserving body text."""
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    fm, body = parse_frontmatter(file_path)
+    fm.update(updates)
+    fm_str = yaml.dump(fm, default_flow_style=False, sort_keys=False).strip()
+    body_clean = body if body.startswith("\n") else ("\n" + body if body else "\n")
+    new_content = f"---\n{fm_str}\n---{body_clean}"
+    file_path.write_text(new_content, encoding="utf-8")
+
+
+def get_auto_invocation_status(item_path: Path) -> bool:
+    """Check if model auto-invocation is enabled for an item (returns True if enabled, False if disabled)."""
+    target_file = get_target_file(item_path)
+    if not target_file.exists():
+        return True
+    fm, _ = parse_frontmatter(target_file)
+    dis1 = fm.get("disable-model-invocation")
+    dis2 = fm.get("disable_model_invocation")
+    val = dis1 if dis1 is not None else dis2
+    if val is True or (isinstance(val, str) and val.lower() == "true"):
+        return False
+    return True
+
+
+def set_auto_invocation(item_path: Path, enable_auto_invocation: bool):
+    """Set model auto-invocation flag on an item."""
+    target_file = get_target_file(item_path)
+    fm, _ = parse_frontmatter(target_file)
+    key = "disable_model_invocation" if "disable_model_invocation" in fm else "disable-model-invocation"
+    disable_flag = not enable_auto_invocation
+    update_frontmatter(target_file, {key: disable_flag})
+
+
+def is_content_equal(path_a: Path, path_b: Path) -> bool:
+    """Compare contents of two files/directories to check if they match."""
+    if not path_a.exists() or not path_b.exists():
+        return False
+    
+    real_a = path_a.resolve()
+    real_b = path_b.resolve()
+    if real_a == real_b:
+        return True
+
+    if real_a.is_file() and real_b.is_file():
+        return real_a.read_bytes() == real_b.read_bytes()
+        
+    if real_a.is_dir() and real_b.is_dir():
+        files_a = {p.relative_to(real_a) for p in real_a.glob("**/*") if p.is_file() and p.name != ".DS_Store"}
+        files_b = {p.relative_to(real_b) for p in real_b.glob("**/*") if p.is_file() and p.name != ".DS_Store"}
+        if files_a != files_b:
+            return False
+        for rel_p in files_a:
+            if (real_a / rel_p).read_bytes() != (real_b / rel_p).read_bytes():
+                return False
+        return True
+        
+    return False
+
+
+def ensure_local_target(src_path: Path, dest_path: Path, require_copy: bool = False):
+    """Ensure dest_path is correctly set up as a symlink or physical copy override."""
+    dest_dir = dest_path.parent
+    dest_dir.mkdir(parents=True, exist_ok=True)
+
+    if require_copy:
+        if dest_path.is_symlink():
+            dest_path.unlink()
+        elif dest_path.exists():
+            if dest_path.is_dir():
+                shutil.rmtree(dest_path)
+            else:
+                dest_path.unlink()
+        
+        if src_path.is_dir():
+            shutil.copytree(src_path, dest_path)
+        else:
+            shutil.copy2(src_path, dest_path)
+    else:
+        if dest_path.exists() and not dest_path.is_symlink():
+            if is_content_equal(src_path, dest_path):
+                if dest_path.is_dir():
+                    shutil.rmtree(dest_path)
+                else:
+                    dest_path.unlink()
+                os.symlink(src_path, dest_path)
+        elif not dest_path.exists():
+            os.symlink(src_path, dest_path)
+
 
