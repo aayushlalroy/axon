@@ -17,6 +17,7 @@ from axon.adapters import (
     SKILL_FORMAT_FLAT_MD,
     SKILL_FORMAT_NONE,
 )
+import axon.core
 from axon.core import (
     get_staged_items,
     load_config,
@@ -372,7 +373,7 @@ def list_items(show_all, agent):
         console.print("[bold cyan]All Staged Items in ~/.axon:[/bold cyan]")
         console.print("[bold]Skills:[/bold]")
         for s in staged["skills"]:
-            skill_dir = AXON_DIR / "skills" / s
+            skill_dir = axon.core.AXON_DIR / "skills" / s
             add_files = get_skill_additional_files(skill_dir)
             aux_str = f" [dim][additional files: {', '.join([f.name for f in add_files])}][/dim]" if add_files else ""
             console.print(f"  - {s}{aux_str}")
@@ -736,12 +737,13 @@ def enable(args, is_global, agent):
         if not item_type:
             continue
 
-        types_to_enable = ["skill", "principle", "workflow"] if item_type == "all" else [item_type]
+        clean_name = normalize_name(name)
+        staged_types = get_staged_types_for_item(clean_name)
+        types_to_enable = staged_types if item_type == "all" else [item_type]
 
         for t in types_to_enable:
-            clean_name = normalize_name(name)
             cur_staged_name = f"{clean_name}.md" if t in ("principle", "workflow") else clean_name
-            src_path = AXON_DIR / f"{t}s" / cur_staged_name
+            src_path = axon.core.AXON_DIR / f"{t}s" / cur_staged_name
 
             if not src_path.exists():
                 console.print(f"[red]Error: Staged path {src_path} does not exist.[/red]")
@@ -823,12 +825,13 @@ def disable(args, is_global, agent):
         if not item_type:
             continue
 
-        types_to_disable = ["skill", "principle", "workflow"] if item_type == "all" else [item_type]
+        clean_name = normalize_name(name)
+        staged_types = get_staged_types_for_item(clean_name)
+        types_to_disable = staged_types if item_type == "all" else [item_type]
 
         for t in types_to_disable:
-            clean_name = normalize_name(name)
             cur_staged_name = f"{clean_name}.md" if t in ("principle", "workflow") else clean_name
-            src_path = AXON_DIR / f"{t}s" / cur_staged_name
+            src_path = axon.core.AXON_DIR / f"{t}s" / cur_staged_name
 
             for ag in agents_to_target:
                 if ag not in ADAPTERS:
@@ -897,9 +900,9 @@ def _toggle_auto_invocation_cmd(item_type_or_name, names, is_global, agent, enab
         if not item_type:
             item_type = "skill"
 
-        src_path = AXON_DIR / f"{item_type}s" / clean_name
-        if not src_path.exists():
-            src_path = AXON_DIR / f"{item_type}s" / f"{clean_name}.md"
+        src_path = axon.core.AXON_DIR / f"{item_type}s" / clean_name
+        if item_type in ("principle", "workflow"):
+            src_path = axon.core.AXON_DIR / f"{item_type}s" / f"{clean_name}.md"
 
         if is_global:
             if src_path.exists():
@@ -984,7 +987,7 @@ def sync(yes):
                 for name in names:
                     clean_name = normalize_name(name)
                     staged_name = f"{clean_name}.md" if item_type in ("principle", "workflow") else clean_name
-                    src_path = AXON_DIR / f"{item_type}s" / staged_name
+                    src_path = axon.core.AXON_DIR / f"{item_type}s" / staged_name
                     if not src_path.exists():
                         console.print(
                             f"[yellow]Warning: Staged source for '{clean_name}' not found. Skipping.[/yellow]"

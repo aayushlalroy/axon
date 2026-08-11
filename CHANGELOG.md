@@ -1,21 +1,9 @@
 # Changelog
 
-## [1.0.0] — 2026-08-12
-
-### Added
-- (fill in)
-
-### Changed
-- (fill in)
+## [1.1.0] — 2026-08-12
 
 ### Fixed
-- (fill in)
-
-
-All notable changes to **axon-cli** will be documented in this file.
-
-This project follows [Semantic Versioning](https://semver.org) (`MAJOR.MINOR.PATCH`).  
-Format inspired by [Keep a Changelog](https://keepachangelog.com/).
+- **Multi-Type Disambiguation (`3) all` option)** — Fixed `axon enable` and `axon disable` when selecting `3) all` on multi-type staged items (e.g. staged as `skill` and `principle`). It now only targets the actual staged types for that item rather than blindly attempting non-existent types (`workflow`).
 
 ---
 

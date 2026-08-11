@@ -41,3 +41,26 @@ def test_enable_explicit_type_mismatch_error(tmp_path, monkeypatch):
     # Try to enable as principle -> should fail with explicit error message
     res = runner.invoke(cli, ["enable", "principle", "skill-only"])
     assert "staged as a skill, not a principle" in res.output or res.exit_code != 0
+
+
+def test_enable_all_multi_type_only_targets_actual_staged_types(tmp_path, monkeypatch):
+    monkeypatch.setattr("axon.core.AXON_DIR", tmp_path / ".axon")
+
+    # Stage as skill and principle ONLY (not workflow)
+    skill_dir = tmp_path / "doc-version-sync"
+    skill_dir.mkdir()
+    (skill_dir / "SKILL.md").write_text("Skill content")
+
+    principle_file = tmp_path / "doc-version-sync.md"
+    principle_file.write_text("Principle content")
+
+    runner = CliRunner()
+    runner.invoke(cli, ["add", str(skill_dir), "--name", "doc-version-sync", "--type", "skill"])
+    runner.invoke(cli, ["add", str(principle_file), "--name", "doc-version-sync", "--type", "principle"])
+
+    # Enable doc-version-sync and select '3' for all
+    res = runner.invoke(cli, ["enable", "doc-version-sync"], input="3\n")
+    assert res.exit_code == 0
+    assert "Enabled 'doc-version-sync' (skill)" in res.output
+    assert "Enabled 'doc-version-sync' (principle)" in res.output
+    assert "Staged path" not in res.output  # No workflow missing error!
