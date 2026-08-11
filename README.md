@@ -72,10 +72,10 @@ Installs Axon into an isolated Python venv at `~/.axon-env` and links the binary
 
 ```bash
 # Via env var:
-AXON_VERSION=v0.2.0 bash <(curl -sSL https://raw.githubusercontent.com/aayushlalroy/axon/main/install.sh)
+AXON_VERSION=v1.1.0 bash <(curl -sSL https://raw.githubusercontent.com/aayushlalroy/axon/main/install.sh)
 
 # Via flag:
-bash install.sh --version v0.2.0
+bash install.sh --version v1.1.0
 ```
 
 ### Via pipx (alternative)
@@ -98,7 +98,7 @@ pip install -e .
 
 ```bash
 axon update                    # update to latest
-axon update --version v0.2.0   # update to a specific version
+axon update --version v1.1.0   # update to a specific version
 ```
 
 Or re-run the install script — it upgrades in-place.
