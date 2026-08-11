@@ -160,18 +160,18 @@ def _do_enable_item(
         if not src_path.is_dir():
             console.print(f"[red]Error: Staged skill '{src_path.name}' is not a folder. Re-stage it with 'axon add'.[/red]")
             return False
-        shutil.copytree(src_path, dest_path)
+        os.symlink(src_path, dest_path)
     elif item_type == "skill" and adapter.skill_format in (SKILL_FORMAT_FLAT_MDC, SKILL_FORMAT_FLAT_MD):
         skill_md = src_path / "SKILL.md"
         if not skill_md.exists():
             console.print(f"[red]Error: No SKILL.md found inside staged skill '{src_path.name}'.[/red]")
             return False
-        shutil.copy2(skill_md, dest_path)
+        os.symlink(skill_md, dest_path)
     else:
         if src_path.is_dir():
             console.print(f"[red]Error: Staged {item_type} '{src_path.name}' is a folder, but {item_type}s must be flat files.[/red]")
             return False
-        shutil.copy2(src_path, dest_path)
+        os.symlink(src_path, dest_path)
 
     return True
 

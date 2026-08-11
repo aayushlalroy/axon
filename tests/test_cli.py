@@ -672,9 +672,14 @@ def test_sync_rebuilds_deleted_symlink(runner, tmp_path, monkeypatch):
     link = skills_dir / "the-skill"
     assert link.is_dir()
 
-    # Manually delete the directory
-    import shutil
-    shutil.rmtree(link)
+    # Manually delete the directory/symlink
+    if link.is_symlink():
+        link.unlink()
+    elif link.is_dir():
+        import shutil
+        shutil.rmtree(link)
+    elif link.exists():
+        link.unlink()
     assert not link.exists()
 
     # Sync should restore it
@@ -1001,13 +1006,16 @@ def test_activate_deactivate_local_copy_and_convergence(runner, monkeypatch, tmp
 
     local_target = project_dir / ".agents" / "skills" / "demo-skill"
     assert local_target.exists()
+    assert local_target.is_symlink()  # Enable creates symlink by default!
 
     res = runner.invoke(cli, ['activate', 'skill', 'demo-skill', '--local', '--agent', 'gemini'])
     assert res.exit_code == 0
     norm_output = " ".join(res.output.split())
     assert "Activated 'demo-skill' in Gemini/Antigravity" in norm_output
+    assert "local override" in norm_output
 
     assert local_target.exists()
+    assert not local_target.is_symlink()  # Local activation converts to physical copy override!
     assert core.get_auto_invocation_status(local_target) is True
     assert core.get_auto_invocation_status(skill_dir) is False
 
@@ -1015,8 +1023,10 @@ def test_activate_deactivate_local_copy_and_convergence(runner, monkeypatch, tmp
     assert res.exit_code == 0
     norm_output_deact = " ".join(res.output.split())
     assert "Deactivated 'demo-skill' in Gemini/Antigravity" in norm_output_deact
+    assert "symlink" in norm_output_deact
 
     assert local_target.exists()
-    assert core.get_auto_invocation_status(local_target) is False
+    assert local_target.is_symlink()  # Deactivation back to matching state auto-reverts to symlink!
+
 
 
