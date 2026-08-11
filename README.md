@@ -178,13 +178,53 @@ axon sync
 
 ---
 
-## Configuration & Ignore Rules
+## Configuration & Settings Guide
 
-Axon supports customizable global/project configuration via `axon-config.yaml` (or `~/.axon/config.yaml`). See [`CONFIG.md`](./CONFIG.md) for full details.
+Axon supports customizable configuration globally via `~/.axon/config.yaml` or per project via `axon-config.yaml` (and `axon-import.yaml`). For a complete YAML schema breakdown, see [`CONFIG.md`](./CONFIG.md).
 
-- **Default Ignores**: `README.md`, `INDEX.md`, `.DS_Store`, `.git*`, `*.tmp` are ignored by default when staging skills or running `axon import`.
-- **Sample Import Manifest**: See [`axon-import.yaml.sample`](./axon-import.yaml.sample) for bulk import configurations.
-- **Sample Config**: See [`axon-config.yaml.sample`](./axon-config.yaml.sample) for configurable defaults.
+### How to Change Settings
+
+#### 1. Machine-Wide Global Defaults (`~/.axon/config.yaml`)
+Add a `defaults:` block to `~/.axon/config.yaml` to customize global defaults across all projects:
+
+```yaml
+defaults:
+  # Default name extraction strategy: auto | frontmatter | folder | file
+  name_source: auto
+
+  # Default target scope: local | global
+  scope: local
+
+  # Default files/globs to ignore when staging or importing
+  ignore_patterns:
+    - "README.md"
+    - "INDEX.md"
+    - ".DS_Store"
+    - "*.tmp"
+    - "*.draft.md"
+```
+
+#### 2. Project-Level Configuration (`axon-config.yaml`)
+Place an `axon-config.yaml` in your project root to override settings for that specific repository. See [`axon-config.yaml.sample`](./axon-config.yaml.sample).
+
+#### 3. Bulk Import Manifests (`axon-import.yaml`)
+Configure `axon import` settings using `axon-import.yaml` or pass a custom manifest via `--config <path>`:
+
+```yaml
+name_source: folder
+ignore:
+  - "*.draft.md"
+  - "PRIVATE.md"
+skills:
+  - path: assets/skills/spring-doctor
+    name: spring-startup-doctor
+principles:
+  - path: assets/principles/claim-tagging.md
+```
+
+- **Default Ignores**: `README.md`, `INDEX.md`, `.DS_Store`, `.git*`, `*.tmp` are ignored by default.
+- **Sample Import Manifest**: See [`axon-import.yaml.sample`](./axon-import.yaml.sample).
+- **Sample Config File**: See [`axon-config.yaml.sample`](./axon-config.yaml.sample).
 
 ---
 
