@@ -10,12 +10,14 @@ Axon is a tool used by humans to manage skills and rules for *us* (AI Agents).
 
 ## Code Navigation
 - `pyproject.toml`: The entry point definition (`axon = axon.cli:cli`).
-- `src/axon/cli.py`: The `click` CLI interface. All user-facing commands (`add`, `enable`, `sync`) live here.
-- `src/axon/core.py`: File I/O for the `~/.axon/` global hub.
-- `src/axon/adapters.py`: Definitions of supported agents (`Cursor`, `Claude`, `Gemini`, `Devin`, `Codex`) and their respective file paths.
+- `src/axon/cli.py`: The `click` CLI interface. All user-facing commands (`add`, `import`, `enable`, `disable`, `activate`, `deactivate`, `remove`, `sync`, `list`) live here.
+- `src/axon/core.py`: File I/O for the `~/.axon/` global hub, name normalization, additional files handling, and ignore filters.
+- `src/axon/adapters.py`: Definitions of supported agents (`Cursor`, `Claude`, `Gemini`, `Devin`, `Codex`, `Windsurf`, `Copilot`) and their respective file paths.
+- `CONFIG.md`: Configuration schema and guide for `axon-config.yaml` and `axon-import.yaml`.
 
 ## Extending Axon
 To add support for a new AI IDE (e.g. GitHub Copilot, Windsurf):
-1. Open `src/axon/adapters.py`.
+1. Open `src/axon/agents.yaml` or `src/axon/adapters.py`.
 2. Add a new `AgentAdapter` entry to the `ADAPTERS` dictionary mapping the agent's expected file paths (local and global).
-3. The CLI (`enable`/`disable`/`list`/`init`) will automatically pick up the new adapter. No changes needed in `cli.py`!
+3. The CLI (`enable`/`disable`/`list`/`init`/`import`/`remove`) will automatically pick up the new adapter. No changes needed in `cli.py`!
+

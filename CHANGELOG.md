@@ -7,6 +7,20 @@ Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 
 ---
 
+## [0.3.0b1] — 2026-08-11 *(beta)*
+
+### Added
+- **`axon import` command** — bulk stage skills, principles, and workflows from directory auto-scanning or `axon-import.yaml` manifests.
+- **`axon remove` command** — un-stage items, purge target symlinks across all agents, clean physical local file overrides from `activate`/`deactivate`, and clean `config.yaml` state.
+- **Additional files support** — skill auxiliary files (e.g. `schema-code-sync.md`, `CHECKS.md`, `prompts/PROMPTS.md`) are preserved during staging, linked into flat-file agent target directories (Cursor/Windsurf), and tracked via a shared dependency reference registry in `config.yaml`.
+- **Append file to skill** — `axon add path/to/extra.md --skill <skill_name>` appends additional files into existing staged skills.
+- **Multi-type staging & disambiguation** — stage the same asset as any combination of `skill`, `principle`, `workflow`. `axon enable` validates explicit type prefixes and presents interactive selection when an item is staged under multiple types.
+- **Global & project configuration system (`axon-config.yaml`)** — customize default name sources, target scope, and ignore rules. Documented in [`CONFIG.md`](./CONFIG.md).
+- **Default ignore rules** — `README.md`, `INDEX.md`, `.DS_Store`, `.git*`, `*.tmp` ignored by default during staging and importing.
+- Expanded test suite from 57 to 170 unit and integration tests.
+
+---
+
 ## [0.2.0b1] — 2026-08-06 *(beta)*
 
 > ⚠️ **Beta release** — APIs and behaviour may change before the stable `0.2.0` final.

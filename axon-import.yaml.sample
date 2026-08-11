@@ -1,0 +1,36 @@
+# Axon Import Configuration Manifest Sample
+# Use with: axon import [PATH] --config axon-import.yaml
+
+# Name extraction strategy (optional): auto | frontmatter | folder | file
+# Default: auto (tries YAML frontmatter 'name:' property first, then folder/file name)
+name_source: auto
+
+# File & Directory ignore glob patterns (optional)
+# Default ignores automatically skipped: README.md, INDEX.md, AGENTS.md, .DS_Store, .git*
+ignore:
+  - "README.md"
+  - "INDEX.md"
+  - "AGENTS.md"
+  - "*.tmp"
+  - ".DS_Store"
+
+# List of skills to stage
+skills:
+  - path: skills/clarify-first
+  - path: skills/evidence-ledger
+  - path: skills/openapi-contract-first
+    name: openapi-contract-first
+    additional_files:
+      - schema-code-sync.md
+  - path: skills/spring-startup-doctor
+    additional_files:
+      - CHECKS.md
+
+# List of principles to stage
+principles:
+  - path: principles/claim-tagging.md
+  - path: principles/skill-attribution.md
+  - path: principles/token-attribution.md
+
+# List of workflows to stage
+workflows: []

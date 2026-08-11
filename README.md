@@ -166,11 +166,25 @@ axon sync
 | `axon update [--version TAG]` | Update Axon in-place |
 | `axon agents` | List supported agents with their skill formats |
 | `axon init [--agent NAME …]` | Scaffold agent directories in the current project |
-| `axon add PATH [--type skill\|principle\|workflow] [--name NAME]` | Stage an item into `~/.axon/` |
-| `axon enable [TYPE] NAME [--agent NAME] [--global]` | Enable a staged item |
-| `axon disable [TYPE] NAME [--agent NAME] [--global]` | Disable (remove symlink) |
-| `axon list [--all] [--agent NAME]` | List enabled or all staged items |
+| `axon add PATH [--type TYPE …] [--name NAME] [--skill NAME]` | Stage an item or append an additional file to an existing skill |
+| `axon import [PATH] [--config FILE] [--name-source STRATEGY] [--ignore GLOBS] [--dry-run]` | Bulk stage items into `~/.axon/` from a folder or `axon-import.yaml` |
+| `axon enable [TYPE] NAME [--agent NAME] [--global]` | Enable a staged item (with disambiguation if multi-type) |
+| `axon disable [TYPE] NAME [--agent NAME] [--global]` | Disable (remove symlink and shared auxiliary files) |
+| `axon remove [TYPE] NAME… [-y]` | Un-stage item(s), purge symlinks, local overrides, and config state |
+| `axon activate [TYPE] NAME` | Enable auto-invocation (or create local override) |
+| `axon deactivate [TYPE] NAME` | Disable auto-invocation |
+| `axon list [--all] [--agent NAME]` | List enabled or all staged items with additional files |
 | `axon sync` | Hard rebuild all symlinks from `config.yaml` |
+
+---
+
+## Configuration & Ignore Rules
+
+Axon supports customizable global/project configuration via `axon-config.yaml` (or `~/.axon/config.yaml`). See [`CONFIG.md`](./CONFIG.md) for full details.
+
+- **Default Ignores**: `README.md`, `INDEX.md`, `.DS_Store`, `.git*`, `*.tmp` are ignored by default when staging skills or running `axon import`.
+- **Sample Import Manifest**: See [`axon-import.yaml.sample`](./axon-import.yaml.sample) for bulk import configurations.
+- **Sample Config**: See [`axon-config.yaml.sample`](./axon-config.yaml.sample) for configurable defaults.
 
 ---
 

@@ -9,25 +9,32 @@ AXON_DIR = Path(os.path.expanduser("~/.axon"))
 CONFIG_FILE = AXON_DIR / "config.yaml"
 
 
+def get_config_file() -> Path:
+    return AXON_DIR / "config.yaml"
+
+
 def init_axon_dir():
     """Ensure ~/.axon directory structure exists."""
     AXON_DIR.mkdir(parents=True, exist_ok=True)
     (AXON_DIR / "skills").mkdir(exist_ok=True)
     (AXON_DIR / "principles").mkdir(exist_ok=True)
     (AXON_DIR / "workflows").mkdir(exist_ok=True)
-    if not CONFIG_FILE.exists():
-        with open(CONFIG_FILE, "w") as f:
+    cfg_file = get_config_file()
+    if not cfg_file.exists():
+        with open(cfg_file, "w") as f:
             yaml.dump({"skills": {}, "principles": {}, "workflows": {}}, f)
 
 
 def load_config():
     init_axon_dir()
-    with open(CONFIG_FILE, "r") as f:
+    cfg_file = get_config_file()
+    with open(cfg_file, "r") as f:
         return yaml.safe_load(f) or {"skills": {}, "principles": {}, "workflows": {}}
 
 
 def save_config(config):
-    with open(CONFIG_FILE, "w") as f:
+    cfg_file = get_config_file()
+    with open(cfg_file, "w") as f:
         yaml.dump(config, f, default_flow_style=False)
 
 
@@ -87,7 +94,7 @@ def get_staged_items():
     return {"skills": skills, "principles": principles, "workflows": workflows}
 
 
-def stage_skill(src: Path, dest_name: str, overwrite: bool = False) -> Path:
+def stage_skill(src: Path, dest_name: str, overwrite: bool = False, custom_ignores: list[str] = None) -> Path:
     """
     Stage a skill into ~/.axon/skills/<dest_name>/.
     Skills in the staging hub ALWAYS use the folder/SKILL.md layout.
@@ -107,8 +114,10 @@ def stage_skill(src: Path, dest_name: str, overwrite: bool = False) -> Path:
 
     if src.is_dir():
         import shutil
-        # Copy entire folder contents into the staged folder
+        # Copy folder contents into the staged folder, excluding ignored files
         for item in src.iterdir():
+            if should_ignore_file(item, custom_ignores):
+                continue
             s = str(item)
             d = str(dest / item.name)
             if item.is_dir():
@@ -161,11 +170,193 @@ def stage_workflow(src: Path, dest_name: str, overwrite: bool = False) -> Path:
     return dest
 
 
-def extract_name_from_source(src: Path) -> str:
+def normalize_name(name: str) -> str:
+    """Strip .md, .mdc extensions to produce canonical base item name."""
+    if not name:
+        return ""
+    clean = name.strip()
+    if clean.endswith(".mdc"):
+        return clean[:-4]
+    if clean.endswith(".md"):
+        return clean[:-3]
+    return clean
+
+
+DEFAULT_IGNORE_PATTERNS = ["README.md", "INDEX.md", ".DS_Store", "*.tmp", ".git*"]
+
+
+def should_ignore_file(path: Path, custom_ignores: list[str] = None) -> bool:
+    """Check if a file or path matches default or custom ignore patterns."""
+    name = path.name
+    patterns = list(DEFAULT_IGNORE_PATTERNS)
+    if custom_ignores:
+        patterns.extend(custom_ignores)
+
+    import fnmatch
+    for pat in patterns:
+        if fnmatch.fnmatch(name, pat) or name == pat:
+            return True
+    return False
+
+
+def get_staged_types_for_item(name: str) -> list[str]:
+    """Return all staged types ('skill', 'principle', 'workflow') for a clean item name."""
+    clean = normalize_name(name)
+    staged = get_staged_items()
+    types = []
+
+    if clean in staged["skills"]:
+        types.append("skill")
+    if f"{clean}.md" in staged["principles"] or clean in staged["principles"]:
+        types.append("principle")
+    if f"{clean}.md" in staged["workflows"] or clean in staged["workflows"]:
+        types.append("workflow")
+
+    return types
+
+
+def get_skill_additional_files(skill_path: Path, custom_ignores: list[str] = None) -> list[Path]:
+    """Return all auxiliary/additional files in a skill directory excluding SKILL.md and ignored files."""
+    if not skill_path.exists() or not skill_path.is_dir():
+        return []
+
+    additional = []
+    for file in skill_path.glob("**/*"):
+        if file.is_file():
+            rel = file.relative_to(skill_path)
+            if rel.name == "SKILL.md":
+                continue
+            if should_ignore_file(file, custom_ignores) or should_ignore_file(rel, custom_ignores):
+                continue
+            additional.append(rel)
+
+    return sorted(additional)
+
+
+def add_additional_file_to_skill(skill_name: str, src_file: Path) -> Path:
+    """Copy an additional file into an existing staged skill directory."""
+    clean_skill = normalize_name(skill_name)
+    skill_dir = AXON_DIR / "skills" / clean_skill
+    if not skill_dir.exists() or not skill_dir.is_dir():
+        raise FileNotFoundError(f"Staged skill '{clean_skill}' does not exist.")
+
+    dest = skill_dir / src_file.name
+    shutil.copy2(src_file, dest)
+    return dest
+
+
+def register_shared_additional_file(aux_rel_path: str, skill_name: str):
+    """Record that skill_name is actively using auxiliary file aux_rel_path."""
+    config = load_config()
+    shared = config.get("shared_additional_files", {})
+    if aux_rel_path not in shared:
+        shared[aux_rel_path] = []
+    if skill_name not in shared[aux_rel_path]:
+        shared[aux_rel_path].append(skill_name)
+    config["shared_additional_files"] = shared
+    save_config(config)
+
+
+def unregister_shared_additional_file(aux_rel_path: str, skill_name: str) -> bool:
+    """Unregister skill_name from auxiliary file. Returns True if 0 active skills remain referencing it."""
+    config = load_config()
+    shared = config.get("shared_additional_files", {})
+    if aux_rel_path in shared:
+        if skill_name in shared[aux_rel_path]:
+            shared[aux_rel_path].remove(skill_name)
+        if not shared[aux_rel_path]:
+            del shared[aux_rel_path]
+            config["shared_additional_files"] = shared
+            save_config(config)
+            return True
+    save_config(config)
+    return aux_rel_path not in shared
+
+
+def remove_staged_item(item_name: str, item_type: str = None) -> list[str]:
     """
-    Extract item name from YAML frontmatter if present (e.g. `name: foo`),
-    otherwise fall back to stem for files or folder name for directories.
+    Remove staged item from ~/.axon hub and clean up agent targets & config.
+    Returns list of removed types.
     """
+    from axon.adapters import ADAPTERS
+    clean_name = normalize_name(item_name)
+    staged_types = get_staged_types_for_item(clean_name)
+
+    target_types = [item_type] if item_type else staged_types
+    removed = []
+
+    config = load_config()
+
+    for t in target_types:
+        staged_path = None
+        add_files = []
+        if t == "skill":
+            staged_path = AXON_DIR / "skills" / clean_name
+            if staged_path.exists() and staged_path.is_dir():
+                add_files = get_skill_additional_files(staged_path)
+        elif t in ("principle", "workflow"):
+            staged_path = AXON_DIR / f"{t}s" / f"{clean_name}.md"
+
+        if staged_path and staged_path.exists():
+            if staged_path.is_dir():
+                shutil.rmtree(staged_path)
+            else:
+                staged_path.unlink()
+            removed.append(t)
+
+        # Cleanup agent symlinks & overrides across all adapters
+        for ag, adapter in ADAPTERS.items():
+            for scope in ("local", "global"):
+                is_glob = (scope == "global")
+                target_dirs = adapter.get_dir_paths(t, is_global=is_glob)
+                dest_name = clean_name
+                if t == "skill":
+                    suffix = adapter.get_skill_suffix()
+                    dest_name = f"{clean_name}{suffix}" if suffix else clean_name
+                else:
+                    dest_name = f"{clean_name}.md"
+
+                for target_dir in target_dirs:
+                    dest_path = target_dir / dest_name
+                    if dest_path.is_symlink() or dest_path.is_file():
+                        dest_path.unlink()
+                    elif dest_path.is_dir():
+                        shutil.rmtree(dest_path)
+
+                    # Also remove auxiliary files linked into target_dir if skill
+                    if t == "skill" and not adapter.uses_skill_folders:
+                        for aux_file in add_files:
+                            should_remove = unregister_shared_additional_file(str(aux_file), clean_name)
+                            if should_remove:
+                                aux_dest = target_dir / aux_file.name
+                                if aux_dest.exists() or aux_dest.is_symlink():
+                                    if aux_dest.is_symlink() or aux_dest.is_file():
+                                        aux_dest.unlink()
+                                    elif aux_dest.is_dir():
+                                        shutil.rmtree(aux_dest)
+
+                # Cleanup config entry
+                update_config_state(ag, scope, f"{t}s", clean_name, enable=False)
+                if t == "principle":
+                    compile_principles_for_agent(ag, scope)
+
+    return removed
+
+
+def extract_name_from_source(src: Path, name_source: str = "auto") -> str:
+    """
+    Extract item name based on name_source strategy:
+    - 'frontmatter': Extract name from YAML frontmatter in SKILL.md or .md file.
+    - 'folder': Use folder name (if dir) or parent folder name.
+    - 'file': Use file stem.
+    - 'auto': Try frontmatter first, then folder (for dir) or file stem (for file).
+    """
+    if name_source == "folder":
+        return src.name if src.is_dir() else src.parent.name
+    if name_source == "file":
+        return src.stem
+
+    # Strategy 'frontmatter' or 'auto'
     target_file = None
     if src.is_dir():
         if (src / "SKILL.md").exists():
@@ -189,7 +380,12 @@ def extract_name_from_source(src: Path) -> str:
         except Exception:
             pass
 
-    return src.stem if src.is_file() else src.name
+    if name_source == "frontmatter":
+        # Fallback to folder/file stem if frontmatter name missing
+        return src.name if src.is_dir() else src.stem
+
+    # Default 'auto' fallback
+    return src.name if src.is_dir() else src.stem
 
 
 AXON_BEGIN_MARKER = "<!-- AXON:BEGIN -->"
@@ -226,14 +422,12 @@ def compile_principles_for_agent(agent_name: str, scope: str = "local"):
 
     blocks = []
     for p_name in enabled_principles:
-        p_path = AXON_DIR / "principles" / p_name
-        if not p_path.exists() and not p_name.endswith(".md"):
-            p_path = AXON_DIR / "principles" / f"{p_name}.md"
+        clean = normalize_name(p_name)
+        p_path = AXON_DIR / "principles" / f"{clean}.md"
 
         if p_path.exists():
             content = p_path.read_text(encoding="utf-8").strip()
-            title = p_name.rsplit(".", 1)[0]
-            blocks.append(f"## {title}\n\n{content}")
+            blocks.append(f"## {clean}\n\n{content}")
 
     if blocks:
         compiled_section = (
@@ -402,5 +596,6 @@ def ensure_local_target(src_path: Path, dest_path: Path, require_copy: bool = Fa
                 else:
                     dest_path.unlink()
             os.symlink(src_path, dest_path)
+
 
 
