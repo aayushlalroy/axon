@@ -189,8 +189,22 @@ def should_ignore_file(path: Path, custom_ignores: list[str] = None) -> bool:
     """Check if a file or path matches default or custom ignore patterns."""
     name = path.name
     patterns = list(DEFAULT_IGNORE_PATTERNS)
+    
+    # Load ignore_patterns from ~/.axon/config.yaml or local axon-config.yaml if present
+    try:
+        cfg = load_config()
+        cfg_ignores = cfg.get("defaults", {}).get("ignore_patterns", [])
+        if isinstance(cfg_ignores, list):
+            for pat in cfg_ignores:
+                if pat not in patterns:
+                    patterns.append(pat)
+    except Exception:
+        pass
+
     if custom_ignores:
-        patterns.extend(custom_ignores)
+        for pat in custom_ignores:
+            if pat not in patterns:
+                patterns.append(pat)
 
     import fnmatch
     for pat in patterns:
@@ -351,6 +365,15 @@ def extract_name_from_source(src: Path, name_source: str = "auto") -> str:
     - 'file': Use file stem.
     - 'auto': Try frontmatter first, then folder (for dir) or file stem (for file).
     """
+    if name_source == "auto":
+        try:
+            cfg = load_config()
+            cfg_ns = cfg.get("defaults", {}).get("name_source") or cfg.get("import", {}).get("name_source")
+            if cfg_ns and cfg_ns in ("frontmatter", "folder", "file"):
+                name_source = cfg_ns
+        except Exception:
+            pass
+
     if name_source == "folder":
         return src.name if src.is_dir() else src.parent.name
     if name_source == "file":

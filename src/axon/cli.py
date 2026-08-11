@@ -98,6 +98,18 @@ def _resolve_agents_to_target(agent_option):
     return agents_to_target
 
 
+def _resolve_scope(is_global_flag: bool) -> bool:
+    if is_global_flag:
+        return True
+    try:
+        cfg = load_config()
+        if cfg.get("defaults", {}).get("scope") == "global":
+            return True
+    except Exception:
+        pass
+    return False
+
+
 def _dest_name_for(name: str, adapter, item_type: str) -> str:
     """
     Compute the filename that should appear inside the agent's target directory.
@@ -710,6 +722,7 @@ def remove_cmd(args, yes):
 @click.option("--agent", multiple=True, help="Target specific agent(s)")
 def enable(args, is_global, agent):
     """Enable one or more skills/principles/workflows for agents."""
+    is_global = _resolve_scope(is_global)
     explicit_type, names = _resolve_item_type(args)
     if not names:
         console.print("[red]Error: Please specify one or more names to enable.[/red]")
@@ -796,6 +809,7 @@ def enable(args, is_global, agent):
 @click.option("--agent", multiple=True, help="Target specific agent(s)")
 def disable(args, is_global, agent):
     """Disable one or more skills/principles/workflows."""
+    is_global = _resolve_scope(is_global)
     explicit_type, names = _resolve_item_type(args)
     if not names:
         console.print("[red]Error: Please specify one or more names to disable.[/red]")
@@ -857,6 +871,7 @@ def deactivate(item_type_or_name, names, is_global, agent):
 
 
 def _toggle_auto_invocation_cmd(item_type_or_name, names, is_global, agent, enable_auto: bool):
+    is_global = _resolve_scope(is_global)
     staged = get_staged_items()
     explicit_type = None
     all_names = []
@@ -943,14 +958,16 @@ def _toggle_auto_invocation_cmd(item_type_or_name, names, is_global, agent, enab
 
 
 @cli.command()
-def sync():
+@click.option("-y", "--yes", is_flag=True, help="Skip confirmation prompt")
+def sync(yes):
     """Rebuild all symlinks from config.yaml (hard reset)."""
-    console.print(
-        "[bold red]Warning: This will forcefully recreate all symlinks from config.yaml.[/bold red]"
-    )
-    if not click.confirm("Proceed?"):
-        console.print("Sync aborted.")
-        return
+    if not yes:
+        console.print(
+            "[bold red]Warning: This will forcefully recreate all symlinks from config.yaml.[/bold red]"
+        )
+        if not click.confirm("Proceed?"):
+            console.print("Sync aborted.")
+            return
 
     config = load_config()
     for ag, scopes in config.get("agents", {}).items():
