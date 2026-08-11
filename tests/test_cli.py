@@ -92,11 +92,31 @@ def _patch_axon(monkeypatch, tmp_path):
 def test_version_command(runner):
     res = runner.invoke(cli, ["--version"])
     assert res.exit_code == 0
-    assert "0.3.0b4" in res.output
+    assert "0.3.0b5" in res.output
 
     res = runner.invoke(cli, ["version"])
     assert res.exit_code == 0
-    assert "0.3.0b4" in res.output
+    assert "0.3.0b5" in res.output
+
+
+def test_list_only_shows_physically_present_items(runner, tmp_path, monkeypatch):
+    """axon list should only display items physically present in the project environment."""
+    mock_axon = _patch_axon(monkeypatch, tmp_path)
+    _make_staged_skill(mock_axon, "staged-skill")
+
+    project_dir = tmp_path / "proj"
+    project_dir.mkdir()
+    monkeypatch.chdir(project_dir)
+
+    # Write stale entries into config.yaml from another project
+    (mock_axon / "config.yaml").write_text(
+        "agents:\n  gemini:\n    local:\n      principles:\n        - phantom-principle.md\n"
+    )
+
+    res = runner.invoke(cli, ["list"])
+    assert res.exit_code == 0
+    assert "phantom-principle.md" not in res.output
+    assert "No items enabled." in res.output
 
 
 def test_agents_command(runner):

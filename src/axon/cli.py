@@ -281,6 +281,28 @@ def init(agent):
     console.print("[bold green]Initialization complete.[/bold green]")
 
 
+def _is_item_present(adapter, item_type: str, name: str, is_global: bool):
+    """Check if an item is physically present/installed in the target paths for this agent/scope."""
+    target_dirs = adapter.get_dir_paths(item_type, is_global=is_global)
+    dest_name = _dest_name_for(name, adapter, item_type)
+
+    for target_dir in target_dirs:
+        dest_path = target_dir / dest_name
+        if dest_path.exists() or dest_path.is_symlink():
+            return True, dest_path
+
+    if item_type == "principle" and adapter.supports_compile:
+        file_targets = adapter.global_file_targets if is_global else adapter.local_file_targets
+        for target_file in file_targets:
+            if target_file.exists():
+                text = target_file.read_text(encoding="utf-8", errors="ignore")
+                stem = name.removesuffix(".md")
+                if stem in text or name in text:
+                    return True, target_file
+
+    return False, None
+
+
 @cli.command(name="list")
 @click.option("--all", "show_all", is_flag=True, help="List all available staged items.")
 @click.option("--agent", help="Filter by specific agent")
@@ -308,34 +330,60 @@ def list_items(show_all, agent):
     for ag in agents_to_list:
         if ag not in ADAPTERS:
             continue
-        console.print(f"\n[bold underline]{ADAPTERS[ag].name}[/bold underline]")
+        adapter = ADAPTERS[ag]
+        console.print(f"\n[bold underline]{adapter.name}[/bold underline]")
         agent_config = config.get("agents", {}).get(ag, {})
+        printed_any = False
 
         for scope_label in ("local", "global"):
+            is_glob = (scope_label == "global")
             scope_cfg = agent_config.get(scope_label, {})
             skills = scope_cfg.get("skills", [])
             principles = scope_cfg.get("principles", [])
             workflows = scope_cfg.get("workflows", [])
-            if not skills and not principles and not workflows:
-                continue
-            console.print(f"  [bold]{scope_label.capitalize()}:[/bold]")
-            if skills:
-                console.print("    [bold]Skills:[/bold]")
-                for s in skills:
-                    console.print(f"      - {s}")
-            if principles:
-                console.print("    [bold]Principles:[/bold]")
-                for p in principles:
-                    console.print(f"      - {p}")
-            if workflows:
-                console.print("    [bold]Workflows:[/bold]")
-                for w in workflows:
-                    console.print(f"      - {w}")
 
-        # If nothing printed for either scope
-        local_empty = not agent_config.get("local")
-        global_empty = not agent_config.get("global")
-        if local_empty and global_empty:
+            active_skills = []
+            for s in skills:
+                ok, path = _is_item_present(adapter, "skill", s, is_glob)
+                if ok:
+                    auto = get_auto_invocation_status(path) if path else True
+                    auto_str = f"[dim][auto: {'on' if auto else 'off'}][/dim]"
+                    stor_str = "[dim][symlink][/dim]" if path and path.is_symlink() else "[dim][override][/dim]"
+                    active_skills.append(f"{s} {auto_str} {stor_str}")
+
+            active_principles = []
+            for p in principles:
+                ok, path = _is_item_present(adapter, "principle", p, is_glob)
+                if ok:
+                    stor_str = "[dim][symlink][/dim]" if path and path.is_symlink() else ""
+                    active_principles.append(f"{p}{(' ' + stor_str) if stor_str else ''}")
+
+            active_workflows = []
+            for w in workflows:
+                ok, path = _is_item_present(adapter, "workflow", w, is_glob)
+                if ok:
+                    stor_str = "[dim][symlink][/dim]" if path and path.is_symlink() else ""
+                    active_workflows.append(f"{w}{(' ' + stor_str) if stor_str else ''}")
+
+            if not active_skills and not active_principles and not active_workflows:
+                continue
+
+            printed_any = True
+            console.print(f"  [bold]{scope_label.capitalize()}:[/bold]")
+            if active_skills:
+                console.print("    [bold]Skills:[/bold]")
+                for item in active_skills:
+                    console.print(f"      - {item}")
+            if active_principles:
+                console.print("    [bold]Principles:[/bold]")
+                for item in active_principles:
+                    console.print(f"      - {item}")
+            if active_workflows:
+                console.print("    [bold]Workflows:[/bold]")
+                for item in active_workflows:
+                    console.print(f"      - {item}")
+
+        if not printed_any:
             console.print("  [dim]No items enabled.[/dim]")
 
 
