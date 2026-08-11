@@ -1,0 +1,29 @@
+# Global / Project Axon Configuration File (axon-config.yaml)
+# Place in ~/.axon/config.yaml or project root as axon-config.yaml
+
+defaults:
+  # Default name extraction strategy: auto | frontmatter | folder | file
+  name_source: auto
+
+  # Default target scope: local | global
+  scope: local
+
+  # Default files/globs to ignore when staging skills or importing
+  ignore_patterns:
+    - "README.md"
+    - "INDEX.md"
+    - ".DS_Store"
+    - "*.tmp"
+
+import:
+  # Default name extraction strategy specifically for axon import
+  name_source: auto
+  # Ignore list for axon import
+  ignore_patterns:
+    - "README.md"
+    - "INDEX.md"
+    - "AGENTS.md"
+
+staging:
+  # Exclude README.md files from being staged inside skill directories by default
+  ignore_readme: true

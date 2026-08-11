@@ -69,15 +69,20 @@ Loaded dynamically from `agents.yaml`. Provides:
 
 ### `core.py`
 - `init_axon_dir()` — ensures `~/.axon/{skills,principles,workflows}/` exist
-- `stage_skill(src)` — always stores as `<name>/SKILL.md` folder in hub
+- `normalize_name(name)` — strips `.md` / `.mdc` extensions for unified base lookup
+- `should_ignore_file(path)` — evaluates default (`README.md`, `INDEX.md`, `.DS_Store`) and custom ignore patterns
+- `stage_skill(src)` — stores as `<name>/SKILL.md` folder in hub (copying all auxiliary files and subdirectories)
 - `stage_principle(src)` / `stage_workflow(src)` — store as flat files
-- `get_staged_items()` — returns all items in the hub
-- `update_config_state()` — persist enabled/disabled state to `config.yaml`
+- `get_skill_additional_files(skill_path)` — returns non-primary auxiliary files in a skill
+- `register_shared_additional_file()` / `unregister_shared_additional_file()` — reference counter tracking shared auxiliary files across enabled skills
+- `remove_staged_item(item_name, item_type)` — purges staged hub files, symlinks, physical local overrides, and config state
 
 ### `cli.py`
 - `_dest_name_for(name, adapter, item_type)` — computes the final filename inside target dir
-- `_do_enable_link(src, target_dir, dest_name, adapter, item_type)` — creates the symlink with the correct strategy (whole folder vs SKILL.md only vs flat file)
-- `_do_disable_link(target_dir, dest_name)` — removes the symlink
+- `_do_enable_item(src, target_dir, dest_name, adapter, item_type)` — creates symlinks for primary item and auxiliary files (for flat-file agents like Cursor/Windsurf)
+- `_do_disable_item(target_dir, dest_name)` — removes symlinks and cleans shared auxiliary files
+- `import_cmd` (`axon import`) — bulk stages skills/principles/workflows using `axon-import.yaml` or directory auto-scanning
+- `remove_cmd` (`axon remove`) — un-stages items, purges target symlinks, local overrides, and config state
 
 ---
 
@@ -90,13 +95,18 @@ agents:
   cursor:
     local:
       skills: ["ts-rules"]
-      principles: ["always-types.md"]
+      principles: ["always-types"]
   devin:
     local:
       skills: ["deploy"]
-      workflows: ["pr-review.md"]
+      workflows: ["pr-review"]
     global:
       skills: ["company-standards"]
+
+shared_additional_files:
+  "schema-code-sync.md":
+    - "openapi-contract-first"
+    - "pr-review-principal"
 ```
 
 `axon sync` reads this file and recreates any missing symlinks, making it safe to clone a project on a new machine and restore all links from config.
@@ -120,3 +130,4 @@ GitHub Release created with CHANGELOG notes
 users: axon update
        or: bash <(curl -sSL …/install.sh)
 ```
+
