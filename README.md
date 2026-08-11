@@ -168,8 +168,8 @@ axon sync
 | `axon init [--agent NAME …]` | Scaffold agent directories in the current project |
 | `axon add PATH [--type TYPE …] [--name NAME] [--skill NAME]` | Stage an item or append an additional file to an existing skill |
 | `axon import [PATH] [--config FILE] [--name-source STRATEGY] [--ignore GLOBS] [--dry-run]` | Bulk stage items into `~/.axon/` from a folder or `axon-import.yaml` |
-| `axon enable [TYPE] NAME [--agent NAME] [--global]` | Enable a staged item (with disambiguation if multi-type) |
-| `axon disable [TYPE] NAME [--agent NAME] [--global]` | Disable (remove symlink and shared auxiliary files) |
+| `axon enable [TYPE] NAME [--agent NAME] [--global]` | Enable a staged item (with interactive prompt targeting actual staged types if multi-type) |
+| `axon disable [TYPE] NAME [--agent NAME] [--global]` | Disable (remove symlink and shared auxiliary files; option `all` targets actual staged types) |
 | `axon remove [TYPE] NAME… [-y]` | Un-stage item(s), purge symlinks, local overrides, and config state |
 | `axon activate [TYPE] NAME` | Enable auto-invocation (or create local override) |
 | `axon deactivate [TYPE] NAME` | Disable auto-invocation |
