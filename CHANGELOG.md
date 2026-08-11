@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.0.0] — 2026-08-12
+
+### Added
+- (fill in)
+
+### Changed
+- (fill in)
+
+### Fixed
+- (fill in)
+
+
 All notable changes to **axon-cli** will be documented in this file.
 
 This project follows [Semantic Versioning](https://semver.org) (`MAJOR.MINOR.PATCH`).  
