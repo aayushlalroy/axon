@@ -92,11 +92,11 @@ def _patch_axon(monkeypatch, tmp_path):
 def test_version_command(runner):
     res = runner.invoke(cli, ["--version"])
     assert res.exit_code == 0
-    assert "0.3.0b3" in res.output
+    assert "0.3.0b4" in res.output
 
     res = runner.invoke(cli, ["version"])
     assert res.exit_code == 0
-    assert "0.3.0b3" in res.output
+    assert "0.3.0b4" in res.output
 
 
 def test_agents_command(runner):

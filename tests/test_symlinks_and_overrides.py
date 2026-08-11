@@ -176,6 +176,36 @@ def test_global_activate_modifies_base_file_and_preserves_symlinks(runner, monke
     assert core.get_auto_invocation_status(target) is True
 
 
+def test_deactivate_when_global_already_disabled_keeps_symlink(runner, monkeypatch, tmp_path):
+    """
+    If base file in ~/.axon/ already has disable-model-invocation: true,
+    running local deactivate must keep/create a SYMLINK, NOT edit a physical file!
+    """
+    mock_axon = _patch_axon(monkeypatch, tmp_path)
+
+    base_skill = mock_axon / "skills" / "already-disabled"
+    base_skill.mkdir(parents=True)
+    base_file = base_skill / "SKILL.md"
+    base_file.write_text("---\nname: already-disabled\ndisable-model-invocation: true\n---\n# Disabled Skill\n")
+
+    project_dir = tmp_path / "proj"
+    project_dir.mkdir()
+    monkeypatch.chdir(project_dir)
+
+    # Enable -> symlink
+    runner.invoke(cli, ["enable", "skill", "already-disabled", "--agent", "gemini"])
+    target = project_dir / ".agents" / "skills" / "already-disabled"
+    assert target.is_symlink()
+
+    # Deactivate locally -> matches base file (both want disable-model-invocation: true)
+    res = runner.invoke(cli, ["deactivate", "skill", "already-disabled", "--local", "--agent", "gemini"])
+    assert res.exit_code == 0
+    assert "symlink" in res.output
+
+    assert target.exists()
+    assert target.is_symlink(), "Local deactivate when global is already disabled MUST preserve/re-create symlink!"
+
+
 def test_disable_removes_symlink_or_copy(runner, monkeypatch, tmp_path):
     """axon disable must cleanly remove symlinks and physical copies."""
     mock_axon = _patch_axon(monkeypatch, tmp_path)
@@ -206,3 +236,5 @@ def test_disable_removes_symlink_or_copy(runner, monkeypatch, tmp_path):
     res_dis = runner.invoke(cli, ["disable", "skill", "del-skill", "--agent", "gemini"])
     assert res_dis.exit_code == 0
     assert not target.exists(), "axon disable MUST remove physical copy overrides!"
+
+

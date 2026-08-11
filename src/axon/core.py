@@ -385,25 +385,22 @@ def ensure_local_target(src_path: Path, dest_path: Path, require_copy: bool = Fa
     if require_copy:
         if dest_path.is_symlink():
             dest_path.unlink()
-        elif dest_path.exists():
-            if dest_path.is_dir():
-                shutil.rmtree(dest_path)
+            if src_path.is_dir():
+                shutil.copytree(src_path, dest_path)
             else:
-                dest_path.unlink()
-        
-        if src_path.is_dir():
-            shutil.copytree(src_path, dest_path)
-        else:
-            shutil.copy2(src_path, dest_path)
+                shutil.copy2(src_path, dest_path)
+        elif not dest_path.exists():
+            if src_path.is_dir():
+                shutil.copytree(src_path, dest_path)
+            else:
+                shutil.copy2(src_path, dest_path)
     else:
-        if dest_path.exists() and not dest_path.is_symlink():
-            if is_content_equal(src_path, dest_path):
+        if not dest_path.is_symlink():
+            if dest_path.exists():
                 if dest_path.is_dir():
                     shutil.rmtree(dest_path)
                 else:
                     dest_path.unlink()
-                os.symlink(src_path, dest_path)
-        elif not dest_path.exists():
             os.symlink(src_path, dest_path)
 
 
