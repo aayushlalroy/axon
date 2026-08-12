@@ -116,12 +116,12 @@ shared_additional_files:
 ## Version & Release Flow
 
 ```
-scripts/release.sh 0.3.0 --push
+scripts/release.sh 2.0.0 --push
   ↓
 bumps pyproject.toml version
 inserts CHANGELOG.md entry
-git commit + git tag v0.3.0
-git push origin main + v0.3.0
+git commit + git tag v2.0.0
+git push origin main + v2.0.0
   ↓
 .github/workflows/release.yml fires
   ↓
@@ -130,4 +130,15 @@ GitHub Release created with CHANGELOG notes
 users: axon update
        or: bash <(curl -sSL …/install.sh)
 ```
+
+---
+
+## Community Resources & Blog Posts
+
+* 📦 **[ai-assets Repository](https://github.com/aayushlalroy/ai-assets)** — Official community repository containing production-ready skills, principles, and workflows.
+* 📦 **[Axon Repository](https://github.com/aayushlalroy/axon)** — Official source code and documentation for Axon CLI.
+* ✍️ **[Axon CLI Blog Post](https://www.roya2yush.com/writing/axon-ai-agent-skill-management)** — Deep dive into Axon's skill and constitution management system.
+* ✍️ **[AI Assets Blog Post](https://www.roya2yush.com/writing/ai-assets-production-ready-agent-skills)** — Guide to production-ready agent skills and principles.
+* 🧠 **[Skills, Principles & Workflows Architecture](https://www.roya2yush.com/writing/ai-agent-skills-principles-workflows-architecture)** — Architectural guide explaining how skills, principles, and workflows operate together.
+
 

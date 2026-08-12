@@ -21,3 +21,10 @@ To add support for a new AI IDE (e.g. GitHub Copilot, Windsurf):
 2. Add a new `AgentAdapter` entry to the `ADAPTERS` dictionary mapping the agent's expected file paths (local and global).
 3. The CLI (`enable`/`disable`/`list`/`init`/`import`/`remove`) will automatically pick up the new adapter. No changes needed in `cli.py`!
 
+## Community Resources & Blog Posts
+
+* 📦 **[ai-assets Repository](https://github.com/aayushlalroy/ai-assets)** — Official community repository containing production-ready skills, principles, and workflows.
+* 📦 **[Axon Repository](https://github.com/aayushlalroy/axon)** — Official source code and documentation for Axon CLI.
+* ✍️ **[Axon CLI Blog Post](https://www.roya2yush.com/writing/axon-ai-agent-skill-management)** — Deep dive into Axon's skill and constitution management system.
+* ✍️ **[AI Assets Blog Post](https://www.roya2yush.com/writing/ai-assets-production-ready-agent-skills)** — Guide to production-ready agent skills and principles.
+* 🧠 **[Skills, Principles & Workflows Architecture](https://www.roya2yush.com/writing/ai-agent-skills-principles-workflows-architecture)** — Architectural guide explaining how skills, principles, and workflows operate together.
