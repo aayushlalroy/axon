@@ -189,7 +189,7 @@ def test_stress_enable_disable_edge_cases(setup_stress_sandbox):
     runner.invoke(cli, ["add", str(skill_dir), "--name", "valid-skill", "--type", "skill"])
 
     res_fake_ag = runner.invoke(cli, ["enable", "valid-skill", "--agent", "nonexistent-agent"])
-    assert "Unknown agent" in res_fake_ag.output
+    assert "not supported" in res_fake_ag.output or "Unknown agent" in res_fake_ag.output
 
     # 3. Enable for GitHub Copilot (does not support skills) -> skipped gracefully
     res_copilot = runner.invoke(cli, ["enable", "valid-skill", "--agent", "copilot"])

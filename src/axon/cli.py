@@ -12,6 +12,7 @@ from axon import __version__
 from axon.adapters import (
     ADAPTERS,
     scaffold_local_env,
+    get_initialized_project_agents,
     SKILL_FORMAT_FOLDER,
     SKILL_FORMAT_FLAT_MDC,
     SKILL_FORMAT_FLAT_MD,
@@ -41,6 +42,9 @@ from axon.core import (
     register_shared_additional_file,
     unregister_shared_additional_file,
     remove_staged_item,
+    get_enabled_agents_config,
+    set_enabled_agents_config,
+    ALL_SUPPORTED_AGENTS,
 )
 
 console = Console()
@@ -78,9 +82,34 @@ def _resolve_item_type(arg_list):
     return None, list(arg_list)
 
 
-def _resolve_agents_to_target(agent_option):
+AGENT_ALIASES = {
+    "antigravity": "gemini",
+    "google": "gemini",
+    "cascade": "windsurf",
+    "claude-code": "claude",
+    "github-copilot": "copilot",
+    "openai": "codex",
+}
+
+
+def _resolve_agents_to_target(agent_option=None, is_global=False):
+    """
+    Resolve which agents to target for an operation.
+    - If agent_option is provided explicitly: parse all items, match against ADAPTERS.
+    - If agent_option is NOT provided: return initialized project agents.
+      If no project agents are initialized yet, fallback to configured enabled_agents.
+    """
+    init_agents = get_initialized_project_agents(adapters_dict=ADAPTERS)
+
     if not agent_option:
-        return list(ADAPTERS.keys())
+        if is_global:
+            return list(ADAPTERS.keys())
+        if init_agents:
+            return init_agents
+        configured = get_enabled_agents_config()
+        valid = [a for a in configured if a in ADAPTERS]
+        return valid if valid else list(ADAPTERS.keys())
+
     agents_to_target = []
     items = agent_option if isinstance(agent_option, (tuple, list)) else [agent_option]
     for item in items:
@@ -88,15 +117,42 @@ def _resolve_agents_to_target(agent_option):
             part = part.strip()
             if not part:
                 continue
+            part_lower = part.lower()
+            if part_lower in AGENT_ALIASES:
+                target_alias = AGENT_ALIASES[part_lower]
+                console.print(f"[dim]Note: Recognized agent alias '{part}' as '{target_alias}'.[/dim]")
+                part_lower = target_alias
+
             matched_key = None
             for key in ADAPTERS.keys():
-                if key.lower() == part.lower():
+                if key.lower() == part_lower:
                     matched_key = key
                     break
             target_key = matched_key if matched_key else part
+
+            if target_key not in ADAPTERS:
+                supported_str = ", ".join(ADAPTERS.keys())
+                suggestion = ""
+                if "antigravity" in part_lower:
+                    suggestion = " (Did you mean 'gemini'? Gemini is the agent ID for Gemini/Antigravity)."
+                console.print(
+                    f"[yellow]Warning: Agent '{target_key}' is not supported.{suggestion} "
+                    f"Run 'axon agents' to see all supported agent IDs ({supported_str}).[/yellow]"
+                )
+                continue
+
+            if not is_global and init_agents and target_key not in init_agents:
+                console.print(
+                    f"[yellow]Warning: Agent '{target_key}' is not initialized in this project. "
+                    f"Run 'axon init --agent {target_key}' to initialize it, or run 'axon agents' to view supported adapters.[/yellow]"
+                )
+
             if target_key not in agents_to_target:
                 agents_to_target.append(target_key)
+
     return agents_to_target
+
+
 
 
 def _resolve_scope(is_global_flag: bool) -> bool:
@@ -325,19 +381,180 @@ def update(pin_version):
     else:
         console.print(f"[bold green]✓ Already up to date:[/bold green] {new_version}")
 
+    cfg = load_config()
+    if "enabled_agents" not in cfg:
+        _prompt_enabled_agents()
+
+
+def _prompt_enabled_agents():
+    console.print("[bold cyan]Default Managed Agents Setup[/bold cyan]")
+    console.print("Which agents do you want Axon to manage by default?")
+    mapping = {"1": "gemini", "2": "cursor", "3": "devin", "4": "windsurf", "5": "codex", "6": "copilot"}
+    for num, name in mapping.items():
+        console.print(f"  {num}. {name}")
+    try:
+        user_input = click.prompt("Enter comma-separated numbers", default="1,2,3,4,5,6")
+    except Exception:
+        user_input = "1,2,3,4,5,6"
+    raw = [part.strip() for part in user_input.split(",") if part.strip()]
+    selected = [mapping[r] for r in raw if r in mapping]
+    if not selected:
+        selected = list(mapping.values())
+    set_enabled_agents_config(selected)
+    console.print(f"[bold green]Saved default enabled agents:[/bold green] {', '.join(selected)}")
+
 
 @cli.command()
-@click.option("--agent", multiple=True, help="Specify agents to initialize")
+def setup():
+    """Interactively configure default managed agents for Axon."""
+    _prompt_enabled_agents()
+
+
+
+@cli.command()
+@click.option("--agent", multiple=True, help="Specify agent(s) to initialize")
 def init(agent):
     """Initialize current project folder for agents (creates target directories/files)."""
-    agents_to_init = agent if agent else ADAPTERS.keys()
+    if agent:
+        agents_to_init = []
+        for item in agent:
+            for part in item.split(","):
+                part = part.strip()
+                if not part:
+                    continue
+                matched_key = None
+                for key in ADAPTERS.keys():
+                    if key.lower() == part.lower():
+                        matched_key = key
+                        break
+                target_key = matched_key if matched_key else part
+                if target_key not in agents_to_init:
+                    agents_to_init.append(target_key)
+    else:
+        configured_defaults = get_enabled_agents_config()
+        agents_to_init = []
+        for c in configured_defaults:
+            matched_key = None
+            for key in ADAPTERS.keys():
+                if key.lower() == c.lower():
+                    matched_key = key
+                    break
+            if matched_key and matched_key not in agents_to_init:
+                agents_to_init.append(matched_key)
+        if not agents_to_init:
+            agents_to_init = list(ADAPTERS.keys())
+
     for ag in agents_to_init:
-        if ag not in ADAPTERS:
-            console.print(f"[yellow]Warning: Agent '{ag}' is not supported.[/yellow]")
+        ag_lower = ag.lower()
+        if ag_lower in AGENT_ALIASES:
+            ag_lower = AGENT_ALIASES[ag_lower]
+        matched_key = None
+        for key in ADAPTERS.keys():
+            if key.lower() == ag_lower:
+                matched_key = key
+                break
+        target_key = matched_key if matched_key else ag
+
+        if target_key not in ADAPTERS:
+            supported_str = ", ".join(ADAPTERS.keys())
+            suggestion = ""
+            if "antigravity" in ag.lower():
+                suggestion = " (Did you mean 'gemini'? Gemini is the agent ID for Gemini/Antigravity)."
+            console.print(
+                f"[yellow]Warning: Agent '{ag}' is not supported.{suggestion} "
+                f"Run 'axon agents' to see all supported agent IDs ({supported_str}).[/yellow]"
+            )
             continue
-        console.print(f"Initializing {ADAPTERS[ag].name}…")
-        scaffold_local_env(ag)
+        console.print(f"Initializing {ADAPTERS[target_key].name}…")
+        scaffold_local_env(target_key)
     console.print("[bold green]Initialization complete.[/bold green]")
+
+
+@cli.command()
+@click.option("--agent", multiple=True, help="Specify agent(s) to de-initialize")
+@click.option("--yes", "-y", is_flag=True, help="Bypass confirmation prompt")
+def deinit(agent, yes):
+    """De-initialize agent directories and files in current project root."""
+    if agent:
+        agents_to_deinit = []
+        items = agent if isinstance(agent, (tuple, list)) else [agent]
+        for item in items:
+            for part in item.split(","):
+                part = part.strip()
+                if not part:
+                    continue
+                part_lower = part.lower()
+                if part_lower in AGENT_ALIASES:
+                    part_lower = AGENT_ALIASES[part_lower]
+                matched_key = None
+                for key in ADAPTERS.keys():
+                    if key.lower() == part_lower:
+                        matched_key = key
+                        break
+                target_key = matched_key if matched_key else part
+                if target_key not in ADAPTERS:
+                    supported_str = ", ".join(ADAPTERS.keys())
+                    console.print(
+                        f"[yellow]Warning: Agent '{part}' is not supported. "
+                        f"Run 'axon agents' to see all supported agent IDs ({supported_str}).[/yellow]"
+                    )
+                    continue
+                if target_key not in agents_to_deinit:
+                    agents_to_deinit.append(target_key)
+    else:
+        agents_to_deinit = get_initialized_project_agents(adapters_dict=ADAPTERS)
+
+    if not agents_to_deinit:
+        console.print("[yellow]No initialized agents found in this project to de-initialize. Run 'axon agents' to see supported agent IDs.[/yellow]")
+        return
+
+    if not yes:
+        console.print(
+            "[bold red]Warning: This will permanently delete agent directories and managed files in this repository. "
+            "Manually added skills, principles, or workflows inside these directories will also be deleted. "
+            "There is no way to undo this.[/bold red]"
+        )
+        if not click.confirm("Confirm de-initialization?"):
+            console.print("De-initialization aborted.")
+            return
+
+    for ag in agents_to_deinit:
+        adapter = ADAPTERS[ag]
+        removed_paths = []
+        for d in adapter.all_local_dirs:
+            if d.exists() or d.is_symlink():
+                if d.is_dir():
+                    shutil.rmtree(d)
+                else:
+                    d.unlink()
+                removed_paths.append(d.name)
+
+        for f in adapter.all_local_files:
+            if f.exists() or f.is_symlink():
+                if f.is_dir():
+                    shutil.rmtree(f)
+                else:
+                    f.unlink()
+                removed_paths.append(f.name)
+
+        # Clean up empty parent folders (e.g. .cursor, .claude, .devin, .codex, .windsurf, .agents, .github)
+        for d in adapter.all_local_dirs:
+            parent = d.parent
+            if parent.exists() and parent != Path.cwd() and parent != Path.home():
+                try:
+                    if not any(parent.iterdir()):
+                        parent.rmdir()
+                except Exception:
+                    pass
+
+        if removed_paths:
+            unique_removed = list(dict.fromkeys(removed_paths))
+            console.print(f"[bold green]De-initialized {adapter.name} (removed {', '.join(unique_removed)})[/bold green]")
+        else:
+            console.print(f"[dim]No files found to remove for {adapter.name}.[/dim]")
+
+    console.print("[bold green]De-initialization complete.[/bold green]")
+
 
 
 def _is_item_present(adapter, item_type: str, name: str, is_global: bool):
@@ -730,7 +947,7 @@ def enable(args, is_global, agent):
         return
 
     staged = get_staged_items()
-    agents_to_target = _resolve_agents_to_target(agent)
+    agents_to_target = _resolve_agents_to_target(agent, is_global=is_global)
 
     for name in names:
         item_type, staged_name = _detect_staged_item_type(name, staged, explicit_type)
@@ -818,7 +1035,7 @@ def disable(args, is_global, agent):
         return
 
     staged = get_staged_items()
-    agents_to_target = _resolve_agents_to_target(agent)
+    agents_to_target = _resolve_agents_to_target(agent, is_global=is_global)
 
     for name in names:
         item_type, staged_name = _detect_staged_item_type(name, staged, explicit_type)
@@ -890,7 +1107,7 @@ def _toggle_auto_invocation_cmd(item_type_or_name, names, is_global, agent, enab
         console.print("[red]Error: Please specify at least one item to toggle auto-invocation for.[/red]")
         return
 
-    agents_to_target = _resolve_agents_to_target(agent)
+    agents_to_target = _resolve_agents_to_target(agent, is_global=is_global)
     status_str = "ON" if enable_auto else "OFF"
     action_str = "Activated" if enable_auto else "Deactivated"
 
@@ -973,6 +1190,8 @@ def sync(yes):
             return
 
     config = load_config()
+    init_agents = get_initialized_project_agents(adapters_dict=ADAPTERS)
+
     for ag, scopes in config.get("agents", {}).items():
         if ag not in ADAPTERS:
             continue
@@ -980,6 +1199,9 @@ def sync(yes):
 
         for scope, item_types in scopes.items():
             is_glob = scope == "global"
+            if not is_glob and init_agents and ag not in init_agents:
+                continue
+
             for item_type_key, names in item_types.items():
                 item_type = item_type_key.rstrip("s")
                 target_dirs = adapter.get_dir_paths(item_type, is_global=is_glob)
@@ -987,6 +1209,7 @@ def sync(yes):
                 for name in names:
                     clean_name = normalize_name(name)
                     staged_name = f"{clean_name}.md" if item_type in ("principle", "workflow") else clean_name
+                    src_path = axon.core.AXON_DIR / f"{t}" if (t := f"{item_type}s") else axon.core.AXON_DIR / f"{item_type}s" / staged_name
                     src_path = axon.core.AXON_DIR / f"{item_type}s" / staged_name
                     if not src_path.exists():
                         console.print(
@@ -1010,3 +1233,4 @@ def sync(yes):
             compile_principles_for_agent(ag, scope)
 
     console.print("[bold green]Sync complete.[/bold green]")
+

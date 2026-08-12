@@ -61,30 +61,20 @@ fi
 
 info "Python $PY_VERSION — OK"
 
-# ── Determine install target ──────────────────────────────────────────────────
-if [[ -n "$VERSION" ]]; then
-    INSTALL_TARGET="git+${REPO_URL}@${VERSION}"
-    section "Installing Axon CLI @ ${VERSION}"
-else
-    INSTALL_TARGET="git+${REPO_URL}"
-    section "Installing / Updating Axon CLI (latest)"
-fi
-
-# ── Create/reuse isolated venv ────────────────────────────────────────────────
-section "Setting up isolated environment"
-
-if [[ -d "$ENV_DIR" ]]; then
-    info "Reusing existing environment at $ENV_DIR"
-else
-    info "Creating new environment at $ENV_DIR"
-fi
-
-python3 -m venv "$ENV_DIR"
-
 # ── Install / upgrade ─────────────────────────────────────────────────────────
 section "Fetching and installing package"
 "$ENV_DIR/bin/pip" install --quiet --upgrade pip
-"$ENV_DIR/bin/pip" install --quiet --upgrade "$INSTALL_TARGET"
+
+if [[ -n "$VERSION" ]]; then
+    section "Installing Axon CLI @ ${VERSION}"
+    "$ENV_DIR/bin/pip" install --quiet --upgrade "git+${REPO_URL}@${VERSION}"
+elif [[ -f "pyproject.toml" ]]; then
+    section "Installing Axon CLI from local workspace"
+    "$ENV_DIR/bin/pip" install --quiet --upgrade -e .
+else
+    section "Installing / Updating Axon CLI (latest)"
+    "$ENV_DIR/bin/pip" install --quiet --upgrade "git+${REPO_URL}"
+fi
 
 # ── Link executable ───────────────────────────────────────────────────────────
 section "Linking executable"
@@ -95,25 +85,45 @@ info "Linked: $BIN_DIR/axon → $ENV_DIR/bin/axon"
 INSTALLED_VERSION=$("$ENV_DIR/bin/axon" version 2>/dev/null || echo "unknown")
 info "Installed version: $INSTALLED_VERSION"
 
-# ── PATH check ────────────────────────────────────────────────────────────────
-if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
-    warn "$BIN_DIR is not in your PATH."
-    echo ""
-    echo "  Add this line to your ~/.zshrc or ~/.bash_profile:"
-    echo ""
-
-    SHELL_NAME=$(basename "${SHELL:-bash}")
-    case "$SHELL_NAME" in
-        zsh)   echo "    echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.zshrc && source ~/.zshrc" ;;
-        bash)  echo "    echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.bash_profile && source ~/.bash_profile" ;;
-        *)     echo "    export PATH=\"$BIN_DIR:\$PATH\"" ;;
-    esac
-    echo ""
+# ── Configure default managed agents ───────────────────────────────────────
+if [ -t 0 ] || [ -t 1 ]; then
+    section "Default Agents Configuration"
+    echo "Which agents do you want Axon to manage by default?"
+    echo "  1. gemini (antigravity)"
+    echo "  2. cursor"
+    echo "  3. devin"
+    echo "  4. windsurf"
+    echo "  5. codex"
+    echo "  6. copilot"
+    read -r -p "Enter what all numbers do you want comma-separated no whitespace [Default: 1,2,3,4,5,6]: " SELECTED_AGENTS || SELECTED_AGENTS="1,2,3,4,5,6"
+    SELECTED_AGENTS="${SELECTED_AGENTS:-1,2,3,4,5,6}"
+    "$ENV_DIR/bin/python" -c "
+import yaml
+from pathlib import Path
+axon_dir = Path.home() / '.axon'
+axon_dir.mkdir(parents=True, exist_ok=True)
+cfg_file = axon_dir / 'config.yaml'
+cfg = {}
+if cfg_file.exists():
+    try:
+        cfg = yaml.safe_load(cfg_file.read_text()) or {}
+    except Exception:
+        cfg = {}
+mapping = {'1': 'gemini', '2': 'cursor', '3': 'devin', '4': 'windsurf', '5': 'codex', '6': 'copilot'}
+raw = '$SELECTED_AGENTS'.split(',')
+selected = [mapping[r.strip()] for r in raw if r.strip() in mapping]
+if not selected:
+    selected = list(mapping.values())
+cfg['enabled_agents'] = selected
+cfg_file.write_text(yaml.dump(cfg, default_flow_style=False))
+print('[axon] Saved default enabled agents:', ', '.join(selected))
+"
 fi
 
 # ── Done ──────────────────────────────────────────────────────────────────────
 echo ""
 echo -e "${GREEN}${BOLD}✓ Axon CLI installed successfully!${NC}"
+
 echo ""
 echo "  axon --help        show all commands"
 echo "  axon version       show installed version"

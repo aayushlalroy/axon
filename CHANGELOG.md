@@ -1,18 +1,15 @@
 # Changelog
 
-## [1.1.0] — 2026-08-12
+## [2.0.0] — 2026-08-13
 
 ### Added
-- (fill in)
+- **De-initialize Command (`axon deinit`)** — Permanently remove project-initialized agent directories and managed files with explicit safety warning prompt and `-y` flag.
+- **Actionable Warning Messages & Agent Aliases** — Enhanced warnings across all commands to provide clear next steps (e.g. `Run 'axon agents' to see all supported agent IDs`, `Run 'axon init --agent <name>' to scaffold directories`), and added support for agent aliases (`antigravity` -> `gemini`, `cascade` -> `windsurf`, `claude-code` -> `claude`, `github-copilot` -> `copilot`).
+- **Interactive Default Agents Configuration (`enabled_agents` & `axon setup`)** — Configure default managed frameworks during interactive installation (`install.sh`), `axon update`, or via `axon setup`.
+- **Project Agent Directory Scoping** — CLI commands (`enable`, `disable`, `activate`, `deactivate`, `list`, `sync`) inspect project root and strictly scope operations to initialized agent directories. Re-running `axon init` is fully idempotent.
+- **Multi-Agent CLI Option Permutations** — Flexible multi-agent targeting across all CLI commands using multiple `--agent` flags, comma-separated lists, and equals-sign syntax.
 
-### Changed
-- (fill in)
-
-### Fixed
-- (fill in)
-
-
-## [1.1.0] — 2026-08-12
+---
 
 ### Fixed
 - **Multi-Type Disambiguation (`3) all` option)** — Fixed `axon enable` and `axon disable` when selecting `3) all` on multi-type staged items (e.g. staged as `skill` and `principle`). It now only targets the actual staged types for that item rather than blindly attempting non-existent types (`workflow`).

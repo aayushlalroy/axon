@@ -25,11 +25,31 @@ def init_axon_dir():
             yaml.dump({"skills": {}, "principles": {}, "workflows": {}}, f)
 
 
+ALL_SUPPORTED_AGENTS = ["gemini", "cursor", "devin", "windsurf", "codex", "copilot", "claude"]
+
+
 def load_config():
     init_axon_dir()
     cfg_file = get_config_file()
     with open(cfg_file, "r") as f:
         return yaml.safe_load(f) or {"skills": {}, "principles": {}, "workflows": {}}
+
+
+def get_enabled_agents_config() -> list:
+    """Return the list of default enabled agents configured in ~/.axon/config.yaml."""
+    cfg = load_config()
+    enabled = cfg.get("enabled_agents")
+    if enabled and isinstance(enabled, list):
+        return [str(a).strip().lower() for a in enabled]
+    return list(ALL_SUPPORTED_AGENTS)
+
+
+def set_enabled_agents_config(agents_list: list):
+    """Save default enabled agents list into ~/.axon/config.yaml."""
+    cfg = load_config()
+    cfg["enabled_agents"] = [str(a).strip().lower() for a in agents_list]
+    save_config(cfg)
+
 
 
 def save_config(config):

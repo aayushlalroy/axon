@@ -126,13 +126,47 @@ def load_adapters_config():
 ADAPTERS = load_adapters_config()
 
 
+def get_initialized_project_agents(project_dir: Path = None, adapters_dict: dict = None) -> list:
+    """
+    Return list of agent keys that are initialized/managed in the project directory.
+    An agent is initialized if any of its local directories or files physically exist.
+    """
+    if project_dir is None:
+        project_dir = Path.cwd()
+    if adapters_dict is None:
+        adapters_dict = ADAPTERS
+    initialized = []
+    for key, adapter in adapters_dict.items():
+        is_init = False
+        all_dirs = getattr(adapter, "all_local_dirs", [])
+        for p in all_dirs:
+            check_path = p if p.is_absolute() else project_dir / p
+            if check_path.exists():
+                is_init = True
+                break
+        if not is_init:
+            all_files = getattr(adapter, "all_local_files", [])
+            for f in all_files:
+                check_path = f if f.is_absolute() else project_dir / f
+                if check_path.exists():
+                    is_init = True
+                    break
+        if is_init:
+            initialized.append(key)
+    return initialized
+
+
+
+
 def scaffold_local_env(agent_name: str) -> bool:
     adapter = ADAPTERS.get(agent_name)
     if not adapter:
         return False
 
+    already_initialized = True
     for path in adapter.all_local_dirs:
         if not path.exists():
+            already_initialized = False
             path.mkdir(parents=True, exist_ok=True)
             console.print(f"[green]Created directory {path}/[/green]")
 
@@ -140,8 +174,13 @@ def scaffold_local_env(agent_name: str) -> bool:
         if path.is_dir():
             shutil.rmtree(path)
         if not path.exists():
+            already_initialized = False
             path.parent.mkdir(parents=True, exist_ok=True)
             path.touch()
             console.print(f"[green]Created file {path}[/green]")
 
+    if already_initialized:
+        console.print(f"[dim]Agent '{agent_name}' directories already present, skipping.[/dim]")
+
     return True
+
